@@ -8,42 +8,27 @@ from torch import cuda
 from config import Config, hparams
 
 config = Config()
-config.data_params['batch_size'] = 1
 
 partition = preprocess(config)
 
 test_set = VoiceBankDataset(partition['test'], config, mode="test", seed=config.seed)
 test_loader = DataLoader(test_set, **config.data_params)
 
+checkpoint_file = "lightning_logs/version_0/checkpoints/epoch=0-step=108.ckpt"
+hparams_file = "lightning_logs/version_0/hparams.yaml"
 if sys.argv[1] == "real":
-    checkpoint_file = ""
-    hparams_file = ""
-    network = R_NETWORK.load_from_checkpoint(
-        config=config,
-        seed=config.seed,
-        checkpoint_path=checkpoint_file,
-        hparams_file=hparams_file,
-        map_location=None
-    )
-    tb_logger = pl_loggers.TensorBoardLogger(save_dir='/import/scratch-01/jhw31/logs-test/', name='real-test')
+    network = R_NETWORK(config, hparams, config.seed, checkpoint_path=checkpoint_file, hparams_file=hparams_file)
+    tb_logger = pl_loggers.TensorBoardLogger(save_dir='logs/', name='real-test')
 elif sys.argv[1] == "complex":
-    checkpoint_file = ""
-    hparams_file = ""
-    network = C_NETWORK.load_from_checkpoint(
-        config=config,
-        seed=config.seed,
-        checkpoint_path=checkpoint_file,
-        hparams_file=hparams_file,
-        map_location=None
-    )
-    tb_logger = pl_loggers.TensorBoardLogger(save_dir='/import/scratch-01/jhw31/logs-test/', name='complex-test')
+    network = C_NETWORK(config, hparams, config.seed, checkpoint_path=checkpoint_file, hparams_file=hparams_file)
+    tb_logger = pl_loggers.TensorBoardLogger(save_dir='logs/', name='complex-test')
 else:
     print("Please pass either real or complex as an argument to test the desired network")
 
 trainer = Trainer(
-    gpus=[3],
-    precision=config.precision,
-    logger=tb_logger)
+        gpus=config.num_gpus if cuda.is_available() else None,
+        precision=config.precision)
 
 if __name__ == '__main__':
     trainer.test(model=network, test_dataloaders=test_loader)
+

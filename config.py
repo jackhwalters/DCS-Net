@@ -1,6 +1,6 @@
 import os
 import torchaudio
-# import cdpam
+import cdpam
 from sys import platform
 from math import floor
 from torch import nn, hann_window, cuda, optim
@@ -34,12 +34,10 @@ MATLAB_ROOT = "../MATLAB/"
 # 0 SiSNR
 # 1 CDPAM
 hparams = {'lr': 10e-5,
-            'noise_alpha': 1,
-            'speech_alpha': 0.25,
+            'speech_alpha': 1,
             'channels': [16, 32, 64, 128, 256],
             'lstm_layers': 2,
             'lstm_bidir': True,
-            'noise_loss_type': 4,
             'speech_loss_type': 0,
             'skip_concat': True,
             'dropout': True,

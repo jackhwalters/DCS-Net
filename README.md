@@ -13,22 +13,22 @@ This is the implementation of "DCS-Net: Deep Complex Subtractive Neural Network 
 $ pip install -r requirements.txt
 ```
 
-4. To run DCS-Net:
+4. To run DC-Net:
 ```
 $ python train.py complex
 ```
 
-5. To run DRS-Net:
+5. To run DR-Net:
 ```
 $ python train.py real
 ```
 
-6. To test DCS-Net:
+6. To test DC-Net:
 ```
 $ python test.py complex
 ```
 
-7. To test DRS-Net:
+7. To test DR-Net:
 ```
 $ python test.py real
 ```
@@ -36,7 +36,7 @@ $ python test.py real
 Example output files are available in output_files/
 
 ## Testing DCS-Net or DRS-Net
-In order to test either DC-Net or DR-Net, switch to the master branch
+In order to test either DCS-Net or DRS-Net, switch to the master branch
 
 ## File list
 data_json/ \

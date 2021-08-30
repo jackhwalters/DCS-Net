@@ -80,10 +80,6 @@ class VoiceBankDataset(torch.utils.data.Dataset):
         clean_data = torch.squeeze(clean_data).float()
         noisy_data = torch.squeeze(noisy_data).float()
 
-        if self.mode == "test":
-            clean_data = self.config.resample(clean_data)
-            noisy_data = self.config.resample(noisy_data)
-
         if clean_data.shape[0] != noisy_data.shape[0]:
             raise Exception("clean_data and noisy_data are not the same length")
 
@@ -137,10 +133,7 @@ class VoiceBankDataset(torch.utils.data.Dataset):
         check_inf_neginf_nan(noise_data, "Found inf, neginf or nan in noise data STFT!")
         check_inf_neginf_nan(noisy_data, "Found inf, neginf or nan in noisy data STFT!")
 
-        if self.mode == "test":
-            return noise_data, noisy_data, clean_data, ID, start_point
-        else:
-            return noise_data, noisy_data, clean_data, ID
+        return noise_data, noisy_data, clean_data, ID
 
 
 def walk_files(dir_path):

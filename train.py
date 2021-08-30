@@ -88,7 +88,7 @@ elif not config.tune:
 
     # callback options: CheckBatchGradient(), InputMonitor() 
     trainer = Trainer(
-            gpus = [1],
+            gpus = [0],
             accelerator = None,
             max_epochs=config.max_epochs,
             logger=tb_logger,
