@@ -35,7 +35,7 @@ $ python test.py real
 
 Example output files are available in output_files/
 
-## Testing DCS-Net or DRS-Net
+## Testing DC-Net or DR-Net
 In order to test either DC-Net or DR-Net, switch to the master branch
 
 ## File list
