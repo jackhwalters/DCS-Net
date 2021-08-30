@@ -1,0 +1,7 @@
+/logs
+/output_files/
+/venv
+/.vim
+/__pycache__
+*.json
+.DS_Store
