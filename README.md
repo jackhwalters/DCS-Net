@@ -8,7 +8,7 @@ This is the implementation of "DCS-Net: Deep Complex Subtractive Neural Network 
 
 2. Tune hyperparameters in config.py
 
-3. Install the relevant models
+3. Install the relevant modules
 ```
 $ pip install -r requirements.txt
 ```
