@@ -8,7 +8,7 @@ This is the implementation of "DCS-Net: Deep Complex Subtractive Neural Network 
 
 2. Tune hyperparameters in config.py
 
-3. Install the relevant models
+3. Install the relevant modules
 ```
 $ pip install -r requirements.txt
 ```
@@ -36,7 +36,7 @@ $ python test.py real
 Example output files are available in output_files/
 
 ## Testing DC-Net or DR-Net
-In order to test either DC-Net or DR-Net, switch to the master branch
+In order to test either DC-Net or DR-Net, switch to the speechest branch
 
 ## File list
 data_json/ \

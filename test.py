@@ -25,6 +25,7 @@ if sys.argv[1] == "real":
         hparams_file=hparams_file,
         map_location=None
     )
+    network.eval()
     tb_logger = pl_loggers.TensorBoardLogger(save_dir='/import/scratch-01/jhw31/logs-test/', name='real-test')
 elif sys.argv[1] == "complex":
     checkpoint_file = ""
@@ -36,6 +37,7 @@ elif sys.argv[1] == "complex":
         hparams_file=hparams_file,
         map_location=None
     )
+    network.eval()
     tb_logger = pl_loggers.TensorBoardLogger(save_dir='/import/scratch-01/jhw31/logs-test/', name='complex-test')
 else:
     print("Please pass either real or complex as an argument to test the desired network")
