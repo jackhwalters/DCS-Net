@@ -7,10 +7,7 @@ from torch import nn, hann_window, cuda, optim
 from complexPyTorch.complexFunctions import complex_relu
 from network_functions import SiSNR, wSDR, complex_lrelu
 
-if platform == "win32":
-    VOICEBANK_ROOT = "C:/Users/Henry/Desktop/Jack/DS_10283_1942/"
-    torchaudio.set_audio_backend("soundfile")
-elif platform == "linux":
+if platform == "linux":
     VOICEBANK_ROOT = "/homes/jhw31/Documents/Project/DS_10283_1942/"
     torchaudio.set_audio_backend("sox_io")
 elif platform == "darwin":
