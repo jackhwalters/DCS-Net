@@ -4,6 +4,8 @@ import pytorch_lightning as pl
 from sys import platform
 if platform == "linux":
     from pypesq import pesq
+elif platform == "darwin":
+    from pesq import pesq
 from pystoi import stoi
 from math import isnan
 from numpy import random
@@ -188,9 +190,6 @@ def calc_loss(self, target_noise_mask, predict_noise_mask, \
 
     if self.hparams['speech_loss_type'] == 0:
         speech_loss_orig = -self.config.SiSNR(clean_audio, predict_clean_audio)
-    elif self.hparams['speech_loss_type'] == 1:
-        speech_loss_orig_small = torch.mean(self.config.CDPAM.forward(clean_audio, predict_clean_audio))
-        speech_loss_orig = speech_loss_orig_small * 10e5
     speech_loss = (self.hparams['speech_alpha'] * speech_loss_orig)
  
     total_loss = noise_loss + speech_loss

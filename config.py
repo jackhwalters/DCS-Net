@@ -1,6 +1,5 @@
 import os
 import torchaudio
-# import cdpam
 from sys import platform
 from math import floor
 from torch import nn, hann_window, cuda, optim
@@ -11,7 +10,7 @@ if platform == "linux":
     VOICEBANK_ROOT = "/homes/jhw31/Documents/Project/DS_10283_1942/"
     torchaudio.set_audio_backend("sox_io")
 elif platform == "darwin":
-    VOICEBANK_ROOT = "/Volumes/HD/Project/DS_10283_1942/"
+    VOICEBANK_ROOT = "/Volumes/Work/Project/Datasets/DS_10283_1942/"
     torchaudio.set_audio_backend("sox_io")
 PROJECT_ROOT = "./"
 OUTPUT_ROOT = os.path.join(PROJECT_ROOT, "model_output/")
@@ -29,7 +28,6 @@ MATLAB_ROOT = "../MATLAB/"
 
 # speech_loss_type
 # 0 SiSNR
-# 1 CDPAM
 hparams = {'lr': 10e-5,
             'noise_alpha': 1,
             'speech_alpha': 0.25,
@@ -78,7 +76,6 @@ class Config(object):
         self.mse = nn.MSELoss()
         self.SiSNR = SiSNR()
         self.wSDR = wSDR() 
-        # self.CDPAM = cdpam.CDPAM()
         self.kernel_sizeE = [7,7,5,5,3,3,3]
         self.kernel_sizeD = [3,3,3,3,3,3,3]
         self.paddingE = [floor(self.kernel_sizeE[0] / 2),

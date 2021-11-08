@@ -2,14 +2,14 @@ import torch
 import matplotlib.pyplot as plt
 import torchaudio
 import math
-import cdpam
-import semetrics
 import norbert
 import scipy
 from scipy.io.wavfile import write
 from sys import platform
 if platform == "linux":
     from pypesq import pesq
+elif platform == "darwin":
+    from pesq import pesq
 from pystoi import stoi
 from torchaudio.backend.sox_io_backend import load
 from config import VOICEBANK_ROOT, VOICEBANK_ROOT, OUTPUT_FILES, MATLAB_ROOT, Config, hparams
@@ -40,7 +40,10 @@ for step, ID in enumerate(tqdm(partition["test"])):
         noisy_audio = config.resample(noisy_audio.to(torch.float))
         clean_audio = config.resample(clean_audio.to(torch.float))
                                                             
-        pesq_noisy = pesq(clean_audio.cpu().numpy(), noisy_audio.cpu().numpy(), config.sr)
+        if platform == "linux":
+            pesq_noisy = pesq(clean_audio.cpu().numpy(), noisy_audio.cpu().numpy(), config.sr)
+        elif platform == "darwin":
+            pesq_noisy = pesq(config.sr, clean_audio.cpu().numpy(), noisy_audio.cpu().numpy(), 'wb')
         stoi_noisy = stoi(clean_audio.cpu().numpy(), noisy_audio.cpu().numpy(), config.sr)
 
         if not isnan(pesq_noisy):
