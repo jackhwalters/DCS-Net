@@ -345,7 +345,7 @@ class C_NETWORK(LightningModule):
         avg_test_loss = torch.stack([x['test_loss'] for x in metrics_list]).mean()
         avg_test_noise_loss = torch.stack([x['test_noise_loss'] for x in metrics_list]).mean()
         avg_test_speech_loss = torch.stack([x['test_speech_loss'] for x in metrics_list]).mean()
-        avg_test_pesq = torch.stack([torch.tensor(x['test_pesq']) for x in metrics_list]).mean()
+        avg_test_pesq = torch.stack([torch.tensor(x['test_pesq']) for x in metrics_list]).float().mean()
         avg_test_stoi = torch.stack([torch.tensor(x['test_stoi']) for x in metrics_list]).mean()
 
         metrics = {'test_loss': avg_test_loss, 'test_noise_loss': avg_test_noise_loss,

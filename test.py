@@ -16,8 +16,8 @@ test_set = VoiceBankDataset(partition['test'], config, mode="test", seed=config.
 test_loader = DataLoader(test_set, **config.data_params)
 
 if sys.argv[1] == "real":
-    checkpoint_file = ""
-    hparams_file = ""
+    checkpoint_file = "/Volumes/Work/Project/Logs/logs29-8-21/real/version_0/checkpoints/epoch=131-step=38279.ckpt"
+    hparams_file = "/Volumes/Work/Project/Logs/logs29-8-21/real/version_0/hparams.yaml"
     network = R_NETWORK.load_from_checkpoint(
         config=config,
         seed=config.seed,
@@ -26,10 +26,14 @@ if sys.argv[1] == "real":
         map_location=None
     )
     network.eval()
-    tb_logger = pl_loggers.TensorBoardLogger(save_dir='/import/scratch-01/jhw31/logs-test/', name='real-test')
+    if platform == "linux":
+        tb_logger = pl_loggers.TensorBoardLogger(save_dir='/import/scratch-01/jhw31/logs-test/', name='real-test')
+    elif platform == "darwin":
+        tb_logger = pl_loggers.TensorBoardLogger(save_dir='/Volumes/Work/Project/Logs', name='real-test')
+
 elif sys.argv[1] == "complex":
-    checkpoint_file = ""
-    hparams_file = ""
+    checkpoint_file = "/Volumes/Work/Project/Logs/logs29-8-21/complex/version_0/checkpoints/epoch=168-step=49009.ckpt"
+    hparams_file = "/Volumes/Work/Project/Logs/logs29-8-21/complex/version_0/hparams.yaml"
     network = C_NETWORK.load_from_checkpoint(
         config=config,
         seed=config.seed,
@@ -38,12 +42,15 @@ elif sys.argv[1] == "complex":
         map_location=None
     )
     network.eval()
-    tb_logger = pl_loggers.TensorBoardLogger(save_dir='/import/scratch-01/jhw31/logs-test/', name='complex-test')
+    if platform == "linux":
+        tb_logger = pl_loggers.TensorBoardLogger(save_dir='/import/scratch-01/jhw31/logs-test/', name='complex-test')
+    elif platform == "darwin":
+        tb_logger = pl_loggers.TensorBoardLogger(save_dir='/Volumes/Work/Project/Logs', name='complex-test')
 else:
     print("Please pass either real or complex as an argument to test the desired network")
 
 trainer = Trainer(
-    gpus=[3],
+    gpus=cuda.device_count(),
     precision=config.precision,
     logger=tb_logger)
 

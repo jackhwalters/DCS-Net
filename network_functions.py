@@ -6,6 +6,7 @@ if platform == "linux":
     from pypesq import pesq
 elif platform == "darwin":
     from pesq import pesq
+    from pesq.cypesq import NoUtterancesError
 from pystoi import stoi
 from math import isnan
 from numpy import random
@@ -154,12 +155,18 @@ def mag_phase_2_wave(mag, phase, config):
 def calc_metric(clean_audio, predict_audio, config, metric):
     metric_arr = []
     for i in range(predict_audio.shape[0]):
-        metric_i = metric(clean_audio[i,:].cpu().numpy(), predict_audio[i,:].cpu().numpy(), config.sr)
-        if not isnan(metric_i):
-            metric_arr.append(metric_i)
-    pesq_av = float(sum(metric_arr)) / max(len(metric_arr), 1)
+        try:
+            if platform == "darwin" and metric.__name__ == "pesq":
+                metric_i = metric(config.sr, clean_audio[i,:].cpu().numpy(), predict_audio[i,:].cpu().numpy(), 'wb')
+            else:
+                metric_i = metric(clean_audio[i,:].cpu().numpy(), predict_audio[i,:].cpu().numpy(), config.sr)
+            if not isnan(metric_i):
+                metric_arr.append(metric_i)
+        except NoUtterancesError:
+            print("Got a NoUtterancesError")
+    metric_av = float(sum(metric_arr)) / max(len(metric_arr), 1)
 
-    return pesq_av
+    return metric_av
 
 def calc_loss(self, target_noise_mask, predict_noise_mask, \
                 predict_noise_audio, predict_clean_audio,
@@ -298,10 +305,7 @@ def val_batch_2_metric_loss(self, val_batch, val_idx, dtype):
         predict_noise_audio = mag_phase_2_wave(torch.abs(predict_noise_data), \
                                 torch.angle(predict_noise_data), self.config)
 
-    if platform == "linux":
-        pesq_av = calc_metric(clean_audio, predict_clean_audio, self.config, pesq)
-    else:
-        pesq_av = 1
+    pesq_av = calc_metric(clean_audio, predict_clean_audio, self.config, pesq)
     stoi_av = calc_metric(clean_audio, predict_clean_audio, self.config, stoi)
 
     noise_loss, speech_loss, val_loss = calc_loss(self,
@@ -362,10 +366,7 @@ def test_batch_2_metric_loss(self, test_batch, test_idx, dtype):
     noise_audio = mag_phase_2_wave(noise_mag, noise_phase, self.config)
     noisy_audio = mag_phase_2_wave(noisy_mag, noisy_phase, self.config)
 
-    if platform == "linux":
-        pesq_av = calc_metric(clean_audio, predict_clean_audio, self.config, pesq)
-    else:
-        pesq_av = 1
+    pesq_av = calc_metric(clean_audio, predict_clean_audio, self.config, pesq)
     stoi_av = calc_metric(clean_audio, predict_clean_audio, self.config, stoi)
 
     noise_loss, speech_loss, test_loss = calc_loss(self,
