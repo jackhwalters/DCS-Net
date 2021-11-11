@@ -27,9 +27,9 @@ if sys.argv[1] == "real":
     )
     network.eval()
     if platform == "linux":
-        tb_logger = pl_loggers.TensorBoardLogger(save_dir='/import/scratch-01/jhw31/logs-test/', name='real-test')
+        tb_logger = pl_loggers.TensorBoardLogger(save_dir='/import/scratch-01/jhw31/logs-test/', name='DRS-Net-test')
     elif platform == "darwin":
-        tb_logger = pl_loggers.TensorBoardLogger(save_dir='/Volumes/Work/Project/Logs', name='real-test')
+        tb_logger = pl_loggers.TensorBoardLogger(save_dir='/Volumes/Work/Project/Logs', name='DRS-Net-test')
 
 elif sys.argv[1] == "complex":
     checkpoint_file = "/Volumes/Work/Project/Logs/logs29-8-21/complex/version_0/checkpoints/epoch=168-step=49009.ckpt"
@@ -43,9 +43,9 @@ elif sys.argv[1] == "complex":
     )
     network.eval()
     if platform == "linux":
-        tb_logger = pl_loggers.TensorBoardLogger(save_dir='/import/scratch-01/jhw31/logs-test/', name='complex-test')
+        tb_logger = pl_loggers.TensorBoardLogger(save_dir='/import/scratch-01/jhw31/logs-test/', name='DCS-Net-test')
     elif platform == "darwin":
-        tb_logger = pl_loggers.TensorBoardLogger(save_dir='/Volumes/Work/Project/Logs', name='complex-test')
+        tb_logger = pl_loggers.TensorBoardLogger(save_dir='/Volumes/Work/Project/Logs', name='DCS-Net-test')
 else:
     print("Please pass either real or complex as an argument to test the desired network")
 
