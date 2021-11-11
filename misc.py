@@ -2,14 +2,14 @@ import torch
 import matplotlib.pyplot as plt
 import torchaudio
 import math
-import cdpam
-import semetrics
 import norbert
 import scipy
 from scipy.io.wavfile import write
 from sys import platform
 if platform == "linux":
     from pypesq import pesq
+elif platform == "darwin":
+    from pesq import pesq
 from pystoi import stoi
 from torchaudio.backend.sox_io_backend import load
 from config import VOICEBANK_ROOT, VOICEBANK_ROOT, OUTPUT_FILES, MATLAB_ROOT, Config, hparams
@@ -23,6 +23,39 @@ config = Config()
 partition = preprocess(config)
 
 # torch.cuda.empty_cache()
+
+BASELINE_METRICS = 0
+
+pesq_noisy_arr = []
+stoi_noisy_arr = []
+for step, ID in enumerate(tqdm(partition["test"])):
+        noisy_audio, noisy_data_sr = load(VOICEBANK_ROOT + "noisy_testset_wav/" + ID + ".wav", normalize=False)
+        clean_audio, clean_data_sr = load(VOICEBANK_ROOT + "clean_testset_wav/" + ID + ".wav", normalize=False)
+        # print("noisy_data_sr: ", noisy_data_sr)
+        # print("clean_data_sr: ", clean_data_sr)
+
+        noisy_audio = torch.squeeze(noisy_audio)
+        clean_audio = torch.squeeze(clean_audio)
+        noisy_audio = config.resample(noisy_audio.to(torch.float))
+        clean_audio = config.resample(clean_audio.to(torch.float))
+
+        if platform == "linux":
+            pesq_noisy = pesq(clean_audio.cpu().numpy(), noisy_audio.cpu().numpy(), config.sr)
+        elif platform == "darwin":
+            pesq_noisy = pesq(config.sr, clean_audio.cpu().numpy(), noisy_audio.cpu().numpy(), 'wb')
+        stoi_noisy = stoi(clean_audio.cpu().numpy(), noisy_audio.cpu().numpy(), config.sr)
+
+        if not isnan(pesq_noisy):
+            pesq_noisy_arr.append(pesq_noisy)
+
+        if not isnan(stoi_noisy):
+            stoi_noisy_arr.append(stoi_noisy)
+
+pesq_noisy_avg = sum(pesq_noisy_arr) / len(pesq_noisy_arr)
+stoi_noisy_avg = sum(stoi_noisy_arr) / len(stoi_noisy_arr)
+
+print("pesq_noisy avg: ", pesq_noisy_avg)
+print("stoi_noisy avg: ", stoi_noisy_avg)
 
 
 RECEPTIVE_FEILD = 0
