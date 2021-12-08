@@ -13,109 +13,52 @@ class R_NETWORK(LightningModule):
         self.hparams.update(hparams)
         self.save_hyperparameters(self.hparams)
 
-        self.conv_encode1 = torch.nn.Conv2d(1, self.hparams['channels'][0], 
-                            kernel_size=self.config.kernel_sizeE[0],
-                            stride=self.config.strideE1,
-                            padding=self.config.paddingE[0])
-        self.bne1 = torch.nn.BatchNorm2d(self.hparams['channels'][0])
-        self.conv_encode2 = torch.nn.Conv2d(self.hparams['channels'][0], self.hparams['channels'][1],
-                            kernel_size=self.config.kernel_sizeE[1],
-                            stride=self.config.strideE1,
-                            padding=self.config.paddingE[1])
-        self.bne2 = torch.nn.BatchNorm2d(self.hparams['channels'][1])
-        self.conv_encode3 = torch.nn.Conv2d(self.hparams['channels'][1], self.hparams['channels'][2],
-                            kernel_size=self.config.kernel_sizeE[2],
-                            stride=self.config.strideE1,
-                            padding=self.config.paddingE[2])
-        self.bne3 = torch.nn.BatchNorm2d(self.hparams['channels'][2])
-        self.conv_encode4 = torch.nn.Conv2d(self.hparams['channels'][2], self.hparams['channels'][3],
-                            kernel_size=self.config.kernel_sizeE[3],
-                            stride=self.config.strideE2,
-                            padding=self.config.paddingE[3])
-        self.bne4 = torch.nn.BatchNorm2d(self.hparams['channels'][3])
-        self.conv_encode5 = torch.nn.Conv2d(self.hparams['channels'][3], self.hparams['channels'][4],
-                            kernel_size=self.config.kernel_sizeE[4],
-                            stride=self.config.strideE2,
-                            padding=self.config.paddingE[4])
-        self.bne5 = torch.nn.BatchNorm2d(self.hparams['channels'][4])
-        self.conv_encode6 = torch.nn.Conv2d(self.hparams['channels'][4], self.hparams['channels'][4],
-                            kernel_size=self.config.kernel_sizeE[5],
-                            stride=self.config.strideE2,
-                            padding=self.config.paddingE[5])
-        self.bne6 = torch.nn.BatchNorm2d(self.hparams['channels'][4])
-        self.conv_encode7 = torch.nn.Conv2d(self.hparams['channels'][4], self.hparams['channels'][4],
-                            kernel_size=self.config.kernel_sizeE[6],
-                            stride=self.config.strideE2,
-                            padding=self.config.paddingE[6])
-        self.bne7 = torch.nn.BatchNorm2d(self.hparams['channels'][4])
+        self.encoder = torch.nn.ModuleList()
+        self.decoder = torch.nn.ModuleList()
 
-        self.lstm = torch.nn.LSTM(input_size=self.hparams['channels'][4],
-                            hidden_size=self.hparams['channels'][3],
-                            num_layers=self.hparams['lstm_layers'],
-                            bidirectional=self.hparams['lstm_bidir'],
-                            batch_first=True)
-        self.fc = torch.nn.Linear(self.hparams['channels'][4],
-                            self.hparams['channels'][4])
+        # Encoder
+        for i in range(self.hparams['no_of_layers']):
+            enc_layer = torch.nn.Conv2d(
+                        1 if i == 0 else self.hparams['channels'][i],
+                        self.hparams['channels'][i + 1],
+                        kernel_size=self.config.kernel_sizeE[i],
+                        stride=self.config.strideE[i],
+                        padding=self.config.paddingE[i])
+            self.encoder.append(enc_layer)
+            enc_bn = torch.nn.BatchNorm2d(self.hparams['channels'][i + 1])
+            self.encoder.append(enc_bn)
 
-        self.upsample1 = torch.nn.Upsample(scale_factor=self.config.scale_factor1, mode=self.config.upsampling_mode)
-        self.conv_decode1 = torch.nn.ConvTranspose2d((self.hparams['channels'][4] + self.hparams['channels'][4])
-                            if self.hparams['skip_concat'] else self.hparams['channels'][4],
-                            self.hparams['channels'][4],
-                            kernel_size=self.config.kernel_sizeD[0],
-                            stride=self.config.strideD,
-                            padding=self.config.paddingD[0])
-        self.bnd1 = torch.nn.BatchNorm2d(self.hparams['channels'][4])
-        self.upsample2 = torch.nn.Upsample(scale_factor=self.config.scale_factor1, mode=self.config.upsampling_mode)
-        self.conv_decode2 = torch.nn.ConvTranspose2d((self.hparams['channels'][4] + self.hparams['channels'][4])
-                            if self.hparams['skip_concat'] else self.hparams['channels'][4],
-                            self.hparams['channels'][4],
-                            kernel_size=self.config.kernel_sizeD[1],
-                            stride=self.config.strideD,
-                            padding=self.config.paddingD[1])
-        self.bnd2 = torch.nn.BatchNorm2d(self.hparams['channels'][4])
-        self.upsample3 = torch.nn.Upsample(scale_factor=self.config.scale_factor1, mode=self.config.upsampling_mode)
-        self.conv_decode3 = torch.nn.ConvTranspose2d((self.hparams['channels'][4] + self.hparams['channels'][3])
-                            if self.hparams['skip_concat'] else self.hparams['channels'][4],
-                            self.hparams['channels'][3],
-                            kernel_size=self.config.kernel_sizeD[2],
-                            stride=self.config.strideD,
-                            padding=self.config.paddingD[2])
-        self.bnd3 = torch.nn.BatchNorm2d(self.hparams['channels'][3])
-        self.upsample4 = torch.nn.Upsample(scale_factor=self.config.scale_factor1, mode=self.config.upsampling_mode)
-        self.conv_decode4 = torch.nn.ConvTranspose2d((self.hparams['channels'][3] + self.hparams['channels'][2])
-                            if self.hparams['skip_concat'] else self.hparams['channels'][3],
-                            self.hparams['channels'][2],
-                            kernel_size=self.config.kernel_sizeD[3],
-                            stride=self.config.strideD,
-                            padding=self.config.paddingD[3])
-        self.bnd4 = torch.nn.BatchNorm2d(self.hparams['channels'][2])
-        self.upsample5 = torch.nn.Upsample(scale_factor=self.config.scale_factor2, mode=self.config.upsampling_mode)
-        self.conv_decode5 = torch.nn.ConvTranspose2d((self.hparams['channels'][2] + self.hparams['channels'][1])
-                            if self.hparams['skip_concat'] else self.hparams['channels'][2],
-                            self.hparams['channels'][1],
-                            kernel_size=self.config.kernel_sizeD[4],
-                            stride=self.config.strideD,
-                            padding=self.config.paddingD[4])
-        self.bnd5 = torch.nn.BatchNorm2d(self.hparams['channels'][1])
-        self.upsample6 = torch.nn.Upsample(scale_factor=self.config.scale_factor2, mode=self.config.upsampling_mode)
-        self.conv_decode6 = torch.nn.ConvTranspose2d((self.hparams['channels'][1] + self.hparams['channels'][0])
-                            if self.hparams['skip_concat'] else self.hparams['channels'][1],
-                            self.hparams['channels'][0],
-                            kernel_size=self.config.kernel_sizeD[5],
-                            stride=self.config.strideD,
-                            padding=self.config.paddingD[5])
-        self.bnd6 = torch.nn.BatchNorm2d(self.hparams['channels'][0])
-        self.upsample7 = torch.nn.Upsample(scale_factor=self.config.scale_factor2, mode=self.config.upsampling_mode)
-        self.conv_decode7 = torch.nn.ConvTranspose2d((self.hparams['channels'][0] + 1)
-                            if self.hparams['skip_concat'] else self.hparams['channels'][0],
-                            1,
-                            kernel_size=self.config.kernel_sizeD[6],
-                            stride=self.config.strideD,
-                            padding=self.config.paddingD[6])
-        self.bnd7 = torch.nn.BatchNorm2d(1)
+        self.lstm = torch.nn.LSTM(input_size=self.hparams['channels'][5],
+                        hidden_size=self.hparams['channels'][4],
+                        num_layers=self.hparams['lstm_layers'],
+                        bidirectional=self.hparams['lstm_bidir'],
+                        batch_first=True)
+        self.fc = torch.nn.Linear(self.hparams['channels'][5],
+                        self.hparams['channels'][5])
 
         self.dropout_conv = torch.nn.Dropout(self.hparams['dropout_conv'])
         self.dropout_fc = torch.nn.Dropout(self.hparams['dropout_fc'])
+
+        # Decoder
+        for i in range(self.hparams['no_of_layers']):
+            current_layer_channels = self.hparams['channels'][self.hparams['no_of_layers'] - i] 
+            if i == self.hparams['no_of_layers'] - 1:
+                next_layer_channels = 1
+                in_channels = ((current_layer_channels + next_layer_channels))
+                out_channels = 1
+            else:
+                next_layer_channels = self.hparams['channels'][self.hparams['no_of_layers'] - 1 - i]
+                in_channels = (current_layer_channels + next_layer_channels)
+                out_channels = next_layer_channels
+            dec_layer = torch.nn.ConvTranspose2d(
+                        in_channels,
+                        out_channels,
+                        kernel_size=self.config.kernel_sizeD[i],
+                        stride=self.config.strideD,
+                        padding=self.config.paddingD[i])
+            self.decoder.append(dec_layer)
+            dec_bn = torch.nn.BatchNorm2d(self.hparams['channels'][self.hparams['no_of_layers'] - 1 - i])
+            self.decoder.append(dec_bn)
 
         self.weights_init()
 
@@ -137,61 +80,38 @@ class R_NETWORK(LightningModule):
 
 
     def forward(self, x):
-        net_in = x.view(x.shape[0], -1, x.shape[1], x.shape[2])
-        e1 = self.bne1(self.config.RactivationE(self.conv_encode1(net_in)))
-        e1 = self.dropout_conv(e1) if self.hparams['dropout'] else e1
-        e2 = self.bne2(self.config.RactivationE(self.conv_encode2(e1)))
-        e2 = self.dropout_conv(e2) if self.hparams['dropout'] else e2
-        e3 = self.bne3(self.config.RactivationE(self.conv_encode3(e2)))
-        e3 = self.dropout_conv(e3) if self.hparams['dropout'] else e3
-        e4 = self.bne4(self.config.RactivationE(self.conv_encode4(e3)))
-        e4 = self.dropout_conv(e4) if self.hparams['dropout'] else e4
-        e5 = self.bne5(self.config.RactivationE(self.conv_encode5(e4)))
-        e5 = self.dropout_conv(e5) if self.hparams['dropout'] else e5
-        e6 = self.bne6(self.config.RactivationE(self.conv_encode6(e5)))
-        e6 = self.dropout_conv(e6) if self.hparams['dropout'] else e6
-        e7 = self.bne7(self.config.RactivationE(self.conv_encode7(e6)))
-        e7 = self.dropout_conv(e7) if self.hparams['dropout'] else e7
+        enc_out = []
 
-        latent_shape = e7.shape
-        flattened = torch.flatten(e7, 2, 3).permute(0, 2, 1)
+        enc_out.append(x.view(x.shape[0], -1, x.shape[1], x.shape[2]))
+
+        for i in range(self.hparams['no_of_layers']):
+            e = self.encoder[i*2](enc_out[i])
+            e = self.encoder[(i*2)+1](e)
+            e = self.config.RactivationE(e)
+            e = self.dropout_conv(e)
+            enc_out.append(e)
+
+        latent_shape = enc_out[-1].shape
+        flattened = torch.flatten(e, 2, 3).permute(0, 2, 1)
         lstm_out, _ = self.lstm(flattened)
         fc_out = self.fc(lstm_out)
         fc_out = self.dropout_fc(fc_out) if self.hparams['dropout'] else fc_out
-        unflattened = fc_out.permute(0, 2, 1).reshape(latent_shape[0], latent_shape[1], latent_shape[2], latent_shape[3])
+        d = fc_out.permute(0, 2, 1).reshape(latent_shape[0], latent_shape[1], latent_shape[2], latent_shape[3])
 
-        d1_skip = torch.cat((self.upsample1(unflattened), e6), dim=1) \
-                if self.hparams['skip_concat'] else self.upsample(unflattened + e7)
-        d1 = self.config.RactivationD(self.bnd1(self.conv_decode1(d1_skip)))
-        d1 = self.dropout_conv(d1) if self.hparams['dropout'] else d1
-        d2_skip = torch.cat((self.upsample2(d1), e5), dim=1) \
-                if self.hparams['skip_concat'] else self.upsample(d1 + e6)
-        d2 = self.config.RactivationD(self.bnd2(self.conv_decode2(d2_skip)))
-        d2 = self.dropout_conv(d2) if self.hparams['dropout'] else d2
-        d3_skip = torch.cat((self.upsample3(d2), e4), dim=1) \
-                if self.hparams['skip_concat'] else self.upsample(d2 + e5)
-        d3 = self.config.RactivationD(self.bnd3(self.conv_decode3(d3_skip)))
-        d3 = self.dropout_conv(d3) if self.hparams['dropout'] else d3
-        d4_skip = torch.cat((self.upsample4(d3), e3), dim=1) \
-                if self.hparams['skip_concat'] else self.upsample(d3 + e4)
-        d4 = self.config.RactivationD(self.bnd4(self.conv_decode4(d4_skip)))
-        d4 = self.dropout_conv(d4) if self.hparams['dropout'] else d4
-        d5_skip = torch.cat((self.upsample5(d4), e2), dim=1) \
-                if self.hparams['skip_concat'] else self.upsample(d4 + e3)
-        d5 = self.config.RactivationD(self.bnd5(self.conv_decode5(d5_skip)))
-        d5 = self.dropout_conv(d5) if self.hparams['dropout'] else d5
-        d6_skip = torch.cat((self.upsample6(d5), e1), dim=1) \
-                if self.hparams['skip_concat'] else self.upsample(d5 + e2)
-        d6 = self.config.RactivationD(self.bnd6(self.conv_decode6(d6_skip)))
-        d6 = self.dropout_conv(d6) if self.hparams['dropout'] else d6
-        d7_skip = torch.cat((self.upsample7(d6), net_in), dim=1) \
-                if self.hparams['skip_concat'] else self.upsample(d6 + e1)
-        d7 = self.conv_decode7(d7_skip)
+        for i in range(self.hparams['no_of_layers']):
+            self.upsample = torch.nn.Upsample(scale_factor=self.config.upsample_scale_factor[i], mode=self.config.upsampling_mode)
+            d = self.upsample(d)
+            d = torch.cat((d, enc_out[self.hparams['no_of_layers'] - 1 - i]), dim=1)
+            if i == self.hparams['no_of_layers'] - 1:
+                d = self.decoder[i*2](d)
+            else:
+                d = self.decoder[i*2](d)
+                d = self.decoder[(i*2)+1](d) 
+                d = self.config.RactivationD(d)
+                d = self.dropout_conv(d)
 
-        net_out = torch.squeeze(d7)
-
+        net_out = torch.squeeze(d)
         net_out_bound = torch.sigmoid(net_out)
-
         return net_out_bound
 
 
