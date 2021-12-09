@@ -33,10 +33,16 @@ if config.tune:
         hparams["skip_concat"] = trial.suggest_categorical("Skip concat", [True, False])
         if sys.argv[1] == "real":
             network = R_NETWORK(config, hparams, config.seed)
-            tb_logger = pl_loggers.TensorBoardLogger(save_dir='/import/scratch-01/jhw31/logs/', name='real')
+            if platform == "linux":
+                tb_logger = pl_loggers.TensorBoardLogger(save_dir='/import/scratch-01/jhw31/logs/', name='DRS-Net-train')
+            elif platform == "darwin":
+                tb_logger = pl_loggers.TensorBoardLogger(save_dir='/Volumes/Work/Project/Logs', name='DRS-Net-train')
         elif sys.argv[1] == "complex":
             network = C_NETWORK(config, hparams, config.seed)
-            tb_logger = pl_loggers.TensorBoardLogger(save_dir='/import/scratch-01/jhw31/logs/', name='complex')
+            if platform == "linux":
+                tb_logger = pl_loggers.TensorBoardLogger(save_dir='/import/scratch-01/jhw31/logs/', name='DCS-Net-train')
+            elif platform == "darwin":
+                tb_logger = pl_loggers.TensorBoardLogger(save_dir='/Volumes/Work/Project/Logs', name='DCS-Net-train')
         else:
             print("Please pass either real or complex as an argument to train the desired network")
 
