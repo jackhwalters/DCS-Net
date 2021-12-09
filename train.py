@@ -33,17 +33,23 @@ if config.tune:
         hparams["skip_concat"] = trial.suggest_categorical("Skip concat", [True, False])
         if sys.argv[1] == "real":
             network = R_NETWORK(config, hparams, config.seed)
-            tb_logger = pl_loggers.TensorBoardLogger(save_dir='/import/scratch-01/jhw31/logs/', name='real')
+            if platform == "linux":
+                tb_logger = pl_loggers.TensorBoardLogger(save_dir='/import/scratch-01/jhw31/logs/', name='DR-Net-train')
+            elif platform == "darwin":
+                tb_logger = pl_loggers.TensorBoardLogger(save_dir='/Volumes/Work/Project/Logs', name='DR-Net-train')
         elif sys.argv[1] == "complex":
             network = C_NETWORK(config, hparams, config.seed)
-            tb_logger = pl_loggers.TensorBoardLogger(save_dir='/import/scratch-01/jhw31/logs/', name='complex')
+            if platform == "linux":
+                tb_logger = pl_loggers.TensorBoardLogger(save_dir='/import/scratch-01/jhw31/logs/', name='DC-Net-train')
+            elif platform == "darwin":
+                tb_logger = pl_loggers.TensorBoardLogger(save_dir='/Volumes/Work/Project/Logs', name='DC-Net-train')
         else:
             print("Please pass either real or complex as an argument to train the desired network")
 
         trainer = Trainer(
                 # gpus=config.num_gpus if sys.argv[1] == "real" else 1,
                 # accelerator='ddp' if sys.argv[1] == "real" else None,
-                gpus = [0],
+                gpus = cuda.device_count(),
                 accelerator = None,
                 max_epochs=config.max_epochs,
                 logger=tb_logger,
@@ -79,16 +85,22 @@ if config.tune:
 elif not config.tune:
     if sys.argv[1] == "real":
         network = R_NETWORK(config, hparams, config.seed)
-        tb_logger = pl_loggers.TensorBoardLogger(save_dir='/import/scratch-01/jhw31/logs/', name='real')
+        if platform == "linux":
+            tb_logger = pl_loggers.TensorBoardLogger(save_dir='/import/scratch-01/jhw31/logs/', name='DR-Net-train')
+        elif platform == "darwin":
+            tb_logger = pl_loggers.TensorBoardLogger(save_dir='/Volumes/Work/Project/Logs', name='DR-Net-train')
     elif sys.argv[1] == "complex":
         network = C_NETWORK(config, hparams, config.seed)
-        tb_logger = pl_loggers.TensorBoardLogger(save_dir='/import/scratch-01/jhw31/logs/', name='complex')
+        if platform == "linux":
+            tb_logger = pl_loggers.TensorBoardLogger(save_dir='/import/scratch-01/jhw31/logs/', name='DC-Net-train')
+        elif platform == "darwin":
+            tb_logger = pl_loggers.TensorBoardLogger(save_dir='/Volumes/Work/Project/Logs', name='DC-Net-train')
     else:
         print("Please pass either real or complex as an argument to train the desired network")
 
     # callback options: CheckBatchGradient(), InputMonitor() 
     trainer = Trainer(
-            gpus = [0],
+            gpus = cuda.device_count(),
             accelerator = None,
             max_epochs=config.max_epochs,
             logger=tb_logger,

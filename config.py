@@ -1,7 +1,6 @@
 import os
 import torchaudio
 from sys import platform
-from math import floor
 from torch import nn, hann_window, cuda, optim
 from complexPyTorch.complexFunctions import complex_relu
 from network_functions import SiSNR, wSDR, complex_lrelu
@@ -30,7 +29,8 @@ MATLAB_ROOT = "../MATLAB/"
 # 0 SiSNR
 hparams = {'lr': 10e-5,
             'speech_alpha': 1,
-            'channels': [16, 32, 64, 128, 256],
+            'no_of_layers': 7,
+            'channels': [1, 16, 32, 64, 128, 256, 256, 256],
             'lstm_layers': 2,
             'lstm_bidir': True,
             'speech_loss_type': 0,
@@ -76,30 +76,28 @@ class Config(object):
         self.wSDR = wSDR() 
         self.kernel_sizeE = [7,7,5,5,3,3,3]
         self.kernel_sizeD = [3,3,3,3,3,3,3]
-        self.paddingE = [floor(self.kernel_sizeE[0] / 2),
-                        floor(self.kernel_sizeE[1] / 2),
-                        floor(self.kernel_sizeE[2] / 2),
-                        floor(self.kernel_sizeE[3] / 2),
-                        floor(self.kernel_sizeE[4] / 2),
-                        floor(self.kernel_sizeE[5] / 2),
-                        floor(self.kernel_sizeE[5] / 2)]
-        self.paddingD = [floor(self.kernel_sizeD[0] / 2),
-                        floor(self.kernel_sizeD[1] / 2),
-                        floor(self.kernel_sizeD[2] / 2),
-                        floor(self.kernel_sizeD[3] / 2),
-                        floor(self.kernel_sizeD[4] / 2),
-                        floor(self.kernel_sizeD[5] / 2),
-                        floor(self.kernel_sizeD[5] / 2)]
-        self.strideE1 = (2,2)
-        self.strideE2 = (2,1)
+        self.paddingE = [self.kernel_sizeE[0] // 2,
+                        self.kernel_sizeE[1] // 2,
+                        self.kernel_sizeE[2] // 2,
+                        self.kernel_sizeE[3] // 2,
+                        self.kernel_sizeE[4] // 2,
+                        self.kernel_sizeE[5] // 2,
+                        self.kernel_sizeE[6] // 2]
+        self.paddingD = [self.kernel_sizeD[0] // 2,
+                        self.kernel_sizeD[1] // 2,
+                        self.kernel_sizeD[2] // 2,
+                        self.kernel_sizeD[3] // 2,
+                        self.kernel_sizeD[4] // 2,
+                        self.kernel_sizeD[5] // 2,
+                        self.kernel_sizeD[6] // 2]
+        self.strideE = [(2,2),(2,2),(2,2),(2,1),(2,1),(2,1),(2,1)]
         self.strideD = (1,1)
         self.initialisation_distribution = nn.init.xavier_uniform_
         self.RactivationE = nn.functional.relu
         self.RactivationD = nn.functional.leaky_relu
         self.CactivationE = complex_relu 
         self.CactivationD = complex_lrelu
-        self.scale_factor1 = (2,1)
-        self.scale_factor2 = (2,2)
+        self.upsample_scale_factor = [(2,1), (2,1), (2,1), (2,1), (2,2), (2,2), (2,2)]
         self.upsampling_mode = 'nearest'
         
         self.receptive_field_freq = 291 * (self.sr / self.fft_size)
