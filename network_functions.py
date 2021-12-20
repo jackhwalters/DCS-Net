@@ -76,7 +76,7 @@ def bound_cRM(cRM, hparams):
     target_noise_mask_mag_tanh = torch.tanh(target_noise_mask_mag)
     target_noise_mag_tanh_real = target_noise_mask_mag_tanh * torch.cos(torch.angle(cRM))
     target_noise_mag_tanh_imag = target_noise_mask_mag_tanh * torch.sin(torch.angle(cRM))
-    target_noise_mask_phase = torch.atan2(target_noise_mag_tanh_imag + hparams['bound_crm_eps'], \
+    target_noise_mask_phase = torch.atan2(target_noise_mag_tanh_imag, \
         target_noise_mag_tanh_real + hparams['bound_crm_eps'])
 
     target_noise_mask_real = target_noise_mask_mag_tanh * torch.cos(target_noise_mask_phase)

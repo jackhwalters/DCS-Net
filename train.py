@@ -104,7 +104,7 @@ elif not config.tune:
             accelerator = None,
             max_epochs=config.max_epochs,
             logger=tb_logger,
-            detect_anomaly=True,
+            detect_anomaly=False,
             num_sanity_val_steps=config.val_log_sample_size,
             precision=config.precision,
             gradient_clip_val=hparams['gradient_clip_val'],
