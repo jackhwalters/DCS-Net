@@ -27,36 +27,36 @@ partition = preprocess(config)
 
 BASELINE_METRICS = 0
 
-pesq_noisy_arr = []
-stoi_noisy_arr = []
-for step, ID in enumerate(tqdm(partition["test"])):
-        noisy_audio, noisy_data_sr = load(VOICEBANK_ROOT + "noisy_testset_wav/" + ID + ".wav", normalize=False)
-        clean_audio, clean_data_sr = load(VOICEBANK_ROOT + "clean_testset_wav/" + ID + ".wav", normalize=False)
-        # print("noisy_data_sr: ", noisy_data_sr)
-        # print("clean_data_sr: ", clean_data_sr)
+# pesq_noisy_arr = []
+# stoi_noisy_arr = []
+# for step, ID in enumerate(tqdm(partition["test"])):
+#         noisy_audio, noisy_data_sr = load(VOICEBANK_ROOT + "noisy_testset_wav/" + ID + ".wav", normalize=False)
+#         clean_audio, clean_data_sr = load(VOICEBANK_ROOT + "clean_testset_wav/" + ID + ".wav", normalize=False)
+#         # print("noisy_data_sr: ", noisy_data_sr)
+#         # print("clean_data_sr: ", clean_data_sr)
 
-        noisy_audio = torch.squeeze(noisy_audio)
-        clean_audio = torch.squeeze(clean_audio)
-        noisy_audio = config.resample(noisy_audio.to(torch.float))
-        clean_audio = config.resample(clean_audio.to(torch.float))
+#         noisy_audio = torch.squeeze(noisy_audio)
+#         clean_audio = torch.squeeze(clean_audio)
+#         noisy_audio = config.resample(noisy_audio.to(torch.float))
+#         clean_audio = config.resample(clean_audio.to(torch.float))
                                                             
-        if platform == "linux":
-            pesq_noisy = pesq(clean_audio.cpu().numpy(), noisy_audio.cpu().numpy(), config.sr)
-        elif platform == "darwin":
-            pesq_noisy = pesq(config.sr, clean_audio.cpu().numpy(), noisy_audio.cpu().numpy(), 'wb')
-        stoi_noisy = stoi(clean_audio.cpu().numpy(), noisy_audio.cpu().numpy(), config.sr)
+#         if platform == "linux":
+#             pesq_noisy = pesq(clean_audio.cpu().numpy(), noisy_audio.cpu().numpy(), config.sr)
+#         elif platform == "darwin":
+#             pesq_noisy = pesq(config.sr, clean_audio.cpu().numpy(), noisy_audio.cpu().numpy(), 'wb')
+#         stoi_noisy = stoi(clean_audio.cpu().numpy(), noisy_audio.cpu().numpy(), config.sr)
 
-        if not isnan(pesq_noisy):
-            pesq_noisy_arr.append(pesq_noisy)
+#         if not isnan(pesq_noisy):
+#             pesq_noisy_arr.append(pesq_noisy)
 
-        if not isnan(stoi_noisy):
-            stoi_noisy_arr.append(stoi_noisy)
+#         if not isnan(stoi_noisy):
+#             stoi_noisy_arr.append(stoi_noisy)
 
-pesq_noisy_avg = sum(pesq_noisy_arr) / len(pesq_noisy_arr)
-stoi_noisy_avg = sum(stoi_noisy_arr) / len(stoi_noisy_arr)
+# pesq_noisy_avg = sum(pesq_noisy_arr) / len(pesq_noisy_arr)
+# stoi_noisy_avg = sum(stoi_noisy_arr) / len(stoi_noisy_arr)
 
-print("pesq_noisy avg: ", pesq_noisy_avg)
-print("stoi_noisy avg: ", stoi_noisy_avg)
+# print("pesq_noisy avg: ", pesq_noisy_avg)
+# print("stoi_noisy avg: ", stoi_noisy_avg)
 
 
 RECEPTIVE_FEILD = 0
@@ -139,11 +139,12 @@ SCALING = 0
 
 DATA_LOADING = 0
 
-# orig, sr = load("/import/scratch-01/jhw31/DS_10283_1942/clean_trainset_wav/p287_420.wav")
-# orig, sr = load(VOICEBANK_ROOT + "clean_testset_wav/" + "p232_010.wav")
-# orig, sr = load("../DS_10283_1942_16/clean_trainset_wav/p226_001.wav")
-# print(sr)
-# write(OUTPUT_FILES + "voltest.wav", config.file_sr, orig[0].numpy())
+train_orig, train_sr = load(VOICEBANK_ROOT + "clean_trainset_28spk_wav/p287_420.wav")
+print("train_sr: ", train_sr)
+write(OUTPUT_FILES + "loadtest.wav", config.sr, train_orig[0].numpy())
+test_orig, test_sr = load(VOICEBANK_ROOT + "clean_testset_wav/p232_002.wav")
+print("test_sr: ", test_sr)
+write(OUTPUT_FILES + "loadtest.wav", config.sr, test_orig[0].numpy())
 
 # orig, sr = load(VOICEBANK_ROOT + "clean_testset_wav/" + "p232_010.wav", normalize=True)
 # resampler = torchaudio.transforms.Resample(sr, config.sr, dtype=orig.dtype)

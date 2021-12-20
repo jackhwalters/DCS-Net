@@ -6,10 +6,10 @@ from complexPyTorch.complexFunctions import complex_relu
 from network_functions import SiSNR, wSDR, complex_lrelu
 
 if platform == "linux":
-    VOICEBANK_ROOT = "/homes/jhw31/Documents/Project/DS_10283_1942/"
+    VOICEBANK_ROOT = "/import/scratch-01/jhw31/DS_10283_2791/"
     torchaudio.set_audio_backend("sox_io")
 elif platform == "darwin":
-    VOICEBANK_ROOT = "/Volumes/Work/Project/Datasets/DS_10283_1942/"
+    VOICEBANK_ROOT = ""
     torchaudio.set_audio_backend("sox_io")
 PROJECT_ROOT = "./"
 OUTPUT_ROOT = os.path.join(PROJECT_ROOT, "model_output/")
@@ -42,11 +42,13 @@ hparams = {'lr': 10e-5,
             'dropout_fc': 0.2,
             'batch_size': 32,
             'optim_eps': 10e-7,
+            'bound_crm_eps': 10e-7,
             'optim_weight_decay': 10e-5,
             'optim_amsgrad': True,
             'gradient_clip_val': 10.0,
             'gradient_clip_algorithm': "norm",
-            'stochastic_weight_avg': True}
+            'stochastic_weight_avg': True,
+            'dataset_type': 28}
 
 class Config(object):
     def __init__(self):
@@ -60,9 +62,9 @@ class Config(object):
         self.num_loader_workers = cuda.device_count() * 4 if cuda.is_available() else 0
         self.num_gpus = cuda.device_count() if cuda.is_available() else 0
         self.data_params = {'batch_size': hparams['batch_size'],
-                    'shuffle': True,
-                    'num_workers': self.num_loader_workers,
-                    'pin_memory': True}
+                            'shuffle': True,
+                            'num_workers': self.num_loader_workers,
+                            'pin_memory': True}
         self.precision = 32
         
         self.fft_size = 512

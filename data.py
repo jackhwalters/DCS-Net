@@ -15,7 +15,7 @@ else:
     from torchaudio.backend.sox_io_backend import load
 from tqdm import tqdm
 from os import walk
-from config import PROJECT_ROOT, VOICEBANK_ROOT, DATA_JSON, OUTPUT_FILES
+from config import PROJECT_ROOT, VOICEBANK_ROOT, DATA_JSON, OUTPUT_FILES, hparams
 
 
 class VoiceBankDataset(torch.utils.data.Dataset):
@@ -30,19 +30,19 @@ class VoiceBankDataset(torch.utils.data.Dataset):
                 self.clean_dir = {}
                 print("Loading clean trainset into RAM...\n")
                 for file in tqdm(self.list_IDs):
-                    audio, _ = load(VOICEBANK_ROOT + "clean_trainset_wav/" + file + ".wav", \
-                        normalize=self.config.normalise_audio)
+                    audio, _ = load(VOICEBANK_ROOT + "clean_trainset_{}spk_wav/".format(hparams['dataset_type']) \
+                         + file + ".wav", normalize=self.config.normalise_audio)
                     self.clean_dir[os.path.splitext(file)[-2]] = audio
                 self.noisy_dir = {}
                 print("Loading noisy trainset into RAM...\n")
                 for file in tqdm(self.list_IDs):
-                    audio, _ = load(VOICEBANK_ROOT + "noisy_trainset_wav/" + file + ".wav", \
-                        normalize=self.config.normalise_audio)
+                    audio, _ = load(VOICEBANK_ROOT + "noisy_trainset_{}spk_wav/".format(hparams['dataset_type']) \
+                        + file + ".wav", normalize=self.config.normalise_audio)
                     self.noisy_dir[os.path.splitext(file)[-2]] = audio
             elif not self.config.load_data_into_RAM:
                 print("Reading train and validation from disk...\n")
-                self.clean_dir = VOICEBANK_ROOT + "clean_trainset_wav/"
-                self.noisy_dir = VOICEBANK_ROOT + "noisy_trainset_wav/"
+                self.clean_dir = VOICEBANK_ROOT + "clean_trainset_{}spk_wav/".format(hparams['dataset_type'])
+                self.noisy_dir = VOICEBANK_ROOT + "noisy_trainset_{}spk_wav/".format(hparams['dataset_type'])
         elif self.mode == "test":
             if self.config.load_data_into_RAM:
                 self.clean_dir = {}
@@ -80,9 +80,9 @@ class VoiceBankDataset(torch.utils.data.Dataset):
         clean_data = torch.squeeze(clean_data).float()
         noisy_data = torch.squeeze(noisy_data).float()
 
-        if self.mode == "test":
-            clean_data = self.config.resample(clean_data)
-            noisy_data = self.config.resample(noisy_data)
+        # if self.mode == "test":
+        clean_data = self.config.resample(clean_data)
+        noisy_data = self.config.resample(noisy_data)
 
         if clean_data.shape[0] != noisy_data.shape[0]:
             raise Exception("clean_data and noisy_data are not the same length")
@@ -155,7 +155,7 @@ def preprocess(config):
 
     if not os.path.exists(DATA_JSON + "partition.json"):
         print('VoiceBank data JSON files do not exist. Creating now...\n')
-        train_val_set_wav = np.array((walk_files(VOICEBANK_ROOT + "clean_trainset_wav/"))) 
+        train_val_set_wav = np.array((walk_files(VOICEBANK_ROOT + "clean_trainset_{}spk_wav/".format(hparams['dataset_type'])))) 
         train_val_set_wav = np.core.defchararray.replace(train_val_set_wav, ".wav", "")
         np.random.shuffle(train_val_set_wav)
         train_val_split_index = round(train_val_set_wav.shape[0] * (config.train_val_split/100))

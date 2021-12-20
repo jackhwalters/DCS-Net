@@ -8,7 +8,7 @@ elif platform == "darwin":
     from pesq import pesq
     from pesq.cypesq import NoUtterancesError
 from pystoi import stoi
-from math import isnan
+from math import isnan, pi
 from numpy import random
 
 def check_inf_neginf_nan(tensor, error_msg):
@@ -71,12 +71,13 @@ def cRM(S, Y, eps=1e-8):
 
     return M
 
-def bound_cRM(cRM):
+def bound_cRM(cRM, hparams):
     target_noise_mask_mag = torch.abs(cRM)
     target_noise_mask_mag_tanh = torch.tanh(target_noise_mask_mag)
     target_noise_mag_tanh_real = target_noise_mask_mag_tanh * torch.cos(torch.angle(cRM))
     target_noise_mag_tanh_imag = target_noise_mask_mag_tanh * torch.sin(torch.angle(cRM))
-    target_noise_mask_phase = torch.atan2(target_noise_mag_tanh_imag, target_noise_mag_tanh_real)
+    target_noise_mask_phase = torch.atan2(target_noise_mag_tanh_imag + hparams['bound_crm_eps'], \
+        target_noise_mag_tanh_real + hparams['bound_crm_eps'])
 
     target_noise_mask_real = target_noise_mask_mag_tanh * torch.cos(target_noise_mask_phase)
     target_noise_mask_imag = target_noise_mask_mag_tanh * torch.sin(target_noise_mask_phase)
@@ -206,10 +207,6 @@ def calc_loss(self, target_noise_mask, predict_noise_mask, \
 def train_batch_2_loss(self, train_batch, batch_idx, dtype):
     noise_data, noisy_data, clean_data, id = train_batch
 
-    check_inf_neginf_nan(clean_data, "Found inf, neginf or nan in clean data STFT!")
-    check_inf_neginf_nan(noise_data, "Found inf, neginf or nan in noise data STFT!")
-    check_inf_neginf_nan(noisy_data, "Found inf, neginf or nan in noisy data STFT!")
-
     noise_mag = torch.abs(noise_data)
     noise_phase = torch.angle(noise_data)
     noisy_mag = torch.abs(noisy_data)
@@ -233,13 +230,13 @@ def train_batch_2_loss(self, train_batch, batch_idx, dtype):
     
     elif dtype == "complex":
         target_noise_mask_out = cRM(noise_data, noisy_data)
-        target_noise_mask = bound_cRM(target_noise_mask_out)
+        target_noise_mask = bound_cRM(target_noise_mask_out, self.hparams)
 
         # noisy_data_standardised = (noisy_data - torch.mean(noisy_data)) / torch.std(noisy_data)
         noisy_data_scaled = torch.view_as_complex((2 * ((torch.view_as_real(noisy_data) - self.config.data_minC) /
                     (self.config.data_maxC - self.config.data_minC))) - 1)
         predict_noise_mask_out = self(noisy_data_scaled)
-        predict_noise_mask = bound_cRM(predict_noise_mask_out)
+        predict_noise_mask = bound_cRM(predict_noise_mask_out, self.hparams)
 
         predict_noise_data = complex_mat_mult(noisy_data, predict_noise_mask)
         predict_clean_data = noisy_data - predict_noise_data
@@ -262,10 +259,6 @@ def train_batch_2_loss(self, train_batch, batch_idx, dtype):
 def val_batch_2_metric_loss(self, val_batch, val_idx, dtype):
     noise_data, noisy_data, clean_data, id = val_batch
 
-    check_inf_neginf_nan(clean_data, "Found inf, neginf or nan in clean data STFT!")
-    check_inf_neginf_nan(noise_data, "Found inf, neginf or nan in noise data STFT!")
-    check_inf_neginf_nan(noisy_data, "Found inf, neginf or nan in noisy data STFT!")
-
     noise_mag = torch.abs(noise_data)
     noise_phase = torch.angle(noise_data)
     noisy_mag = torch.abs(noisy_data)
@@ -290,13 +283,13 @@ def val_batch_2_metric_loss(self, val_batch, val_idx, dtype):
 
     elif dtype == "complex":
         target_noise_mask_out = cRM(noise_data, noisy_data)
-        target_noise_mask = bound_cRM(target_noise_mask_out)
+        target_noise_mask = bound_cRM(target_noise_mask_out, self.hparams)
 
         # noisy_data_standardised = (noisy_data - torch.mean(noisy_data)) / torch.std(noisy_data)
         noisy_data_scaled = torch.view_as_complex((2 * ((torch.view_as_real(noisy_data) - self.config.data_minC) /
                     (self.config.data_maxC - self.config.data_minC))) - 1)
         predict_noise_mask_out = self(noisy_data_scaled)
-        predict_noise_mask = bound_cRM(predict_noise_mask_out)
+        predict_noise_mask = bound_cRM(predict_noise_mask_out, self.hparams)
 
         predict_noise_data = complex_mat_mult(noisy_data, predict_noise_mask)
         predict_clean_data = noisy_data - predict_noise_data
@@ -348,13 +341,13 @@ def test_batch_2_metric_loss(self, test_batch, test_idx, dtype):
 
     elif dtype == "complex":
         target_noise_mask_out = cRM(noise_data, noisy_data)
-        target_noise_mask = bound_cRM(target_noise_mask_out)
+        target_noise_mask = bound_cRM(target_noise_mask_out, self.hparams)
 
         # noisy_data_standardised = (noisy_data - torch.mean(noisy_data)) / torch.std(noisy_data)
         noisy_data_scaled = torch.view_as_complex((2 * ((torch.view_as_real(noisy_data) - self.config.data_minC) /
                     (self.config.data_maxC - self.config.data_minC))) - 1) 
         predict_noise_mask_out = self(noisy_data_scaled)
-        predict_noise_mask = bound_cRM(predict_noise_mask_out)
+        predict_noise_mask = bound_cRM(predict_noise_mask_out, self.hparams)
 
         predict_noise_data = complex_mat_mult(noisy_data, predict_noise_mask)
         predict_clean_data = noisy_data - predict_noise_data

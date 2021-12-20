@@ -100,10 +100,11 @@ elif not config.tune:
 
     # callback options: CheckBatchGradient(), InputMonitor() 
     trainer = Trainer(
-            gpus=cuda.device_count(),
+            gpus=[0],
             accelerator = None,
             max_epochs=config.max_epochs,
             logger=tb_logger,
+            detect_anomaly=True,
             num_sanity_val_steps=config.val_log_sample_size,
             precision=config.precision,
             gradient_clip_val=hparams['gradient_clip_val'],

@@ -1,7 +1,6 @@
 import torch
 from scipy.io.wavfile import write
 from network_functions import *
-from random import randint
 from pytorch_lightning.core.lightning import LightningModule
 
 
@@ -19,8 +18,8 @@ class R_NETWORK(LightningModule):
         # Encoder
         for i in range(self.hparams['no_of_layers']):
             enc_layer = torch.nn.Conv2d(
-                        1 if i == 0 else self.hparams['channels'][i],
-                        self.hparams['channels'][i + 1],
+                        in_channels=1 if i == 0 else self.hparams['channels'][i],
+                        out_channels=self.hparams['channels'][i + 1],
                         kernel_size=self.config.kernel_sizeE[i],
                         stride=self.config.strideE[i],
                         padding=self.config.paddingE[i])
@@ -238,7 +237,7 @@ class R_NETWORK(LightningModule):
 
     
     def on_after_backward(self):
-        if self.trainer.global_step % 25 == 0:  # don't make the tf file huge
+        if self.trainer.global_step % 25 == 0:
             vals = torch.tensor((), device='cuda')
             for k, v in zip(self.state_dict().keys(), self.parameters()):
                 name = k

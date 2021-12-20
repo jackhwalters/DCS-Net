@@ -2,7 +2,6 @@ import torch
 import pytorch_lightning as pl
 from scipy.io.wavfile import write
 from network_functions import *
-from random import randint
 from pytorch_lightning.core.lightning import LightningModule
 from complexPyTorch.complexLayers import ComplexConv2d, ComplexConvTranspose2d, ComplexLinear, ComplexBatchNorm2d
 from complexPyTorch.complexFunctions import complex_upsample
@@ -22,8 +21,8 @@ class C_NETWORK(LightningModule):
         # Encoder
         for i in range(self.hparams['no_of_layers']):
             enc_layer = ComplexConv2d(
-                        1 if i == 0 else self.hparams['channels'][i] // 2,
-                        self.hparams['channels'][i + 1] // 2,
+                        in_channels=1 if i == 0 else self.hparams['channels'][i] // 2,
+                        out_channels=self.hparams['channels'][i + 1] // 2,
                         kernel_size=self.config.kernel_sizeE[i],
                         stride=self.config.strideE[i],
                         padding=self.config.paddingE[i])
@@ -89,15 +88,16 @@ class C_NETWORK(LightningModule):
         enc_out = []
 
         enc_out.append(x.view(x.shape[0], -1, x.shape[1], x.shape[2]))
-
+        
         for i in range(self.hparams['no_of_layers']):
+            # print("enc forward i: ", i)
             e = self.encoder[i*2](enc_out[i])
             e = self.encoder[(i*2)+1](e)
             e = self.config.CactivationE(e)
             e = self.dropout_conv(torch.view_as_real(e))
             e = torch.view_as_complex(e)
             enc_out.append(e)
-
+        
         latent_shape = enc_out[-1].shape
         flattened = torch.flatten(e, 2, 3).permute(0, 2, 1)
         lstm_out = self.lstm(flattened)
@@ -107,6 +107,7 @@ class C_NETWORK(LightningModule):
         d = fc_out.permute(0, 2, 1).reshape(latent_shape[0], latent_shape[1], latent_shape[2], latent_shape[3])
 
         for i in range(self.hparams['no_of_layers']):
+            # print("dec forward i: ", i)
             d = complex_upsample(d, scale_factor=self.config.upsample_scale_factor[i],
                                         mode=self.config.upsampling_mode)
             d = torch.cat((d, enc_out[self.hparams['no_of_layers'] - 1 - i]), dim=1)
@@ -120,7 +121,7 @@ class C_NETWORK(LightningModule):
             d = torch.view_as_complex(d)
 
         net_out = torch.squeeze(d)
-        net_out_bound = bound_cRM(net_out)
+        net_out_bound = bound_cRM(net_out, self.hparams)
         return net_out_bound
 
 
@@ -249,7 +250,7 @@ class C_NETWORK(LightningModule):
 
 
     def on_after_backward(self):
-        if self.trainer.global_step % 25 == 0:  # don't make the tf file huge
+        if self.trainer.global_step % 25 == 0:
             vals = torch.tensor((), device='cuda')
             for k, v in zip(self.state_dict().keys(), self.parameters()):
                 name = k
