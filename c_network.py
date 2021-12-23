@@ -90,7 +90,6 @@ class C_NETWORK(LightningModule):
         enc_out.append(x.view(x.shape[0], -1, x.shape[1], x.shape[2]))
         
         for i in range(self.hparams['no_of_layers']):
-            # print("enc forward i: ", i)
             e = self.encoder[i*2](enc_out[i])
             e = self.encoder[(i*2)+1](e)
             e = self.config.CactivationE(e)
@@ -107,7 +106,6 @@ class C_NETWORK(LightningModule):
         d = fc_out.permute(0, 2, 1).reshape(latent_shape[0], latent_shape[1], latent_shape[2], latent_shape[3])
 
         for i in range(self.hparams['no_of_layers']):
-            # print("dec forward i: ", i)
             d = complex_upsample(d, scale_factor=self.config.upsample_scale_factor[i],
                                         mode=self.config.upsampling_mode)
             d = torch.cat((d, enc_out[self.hparams['no_of_layers'] - 1 - i]), dim=1)

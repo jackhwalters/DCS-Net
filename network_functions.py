@@ -59,6 +59,8 @@ class wSDR(object):
         return torch.mean(wSDR)
 
 def cRM(S, Y, eps=1e-8):
+    # S target
+    # Y noisy
     M_r_numer = (Y.real * S.real) + (Y.imag * S.imag)
     M_r_denom = torch.square(Y.real) + torch.square(Y.imag)
     M_r = M_r_numer / (M_r_denom + eps)
@@ -417,7 +419,6 @@ def epoch_end(self, outputs, type):
                                         sample_rate=self.config.sr)
 
 class InputMonitor(pl.Callback):
-
     def on_train_batch_start(self, trainer, pl_module, batch, batch_idx, dataloader_idx):
         if (batch_idx + 1) % trainer.log_every_n_steps == 0:
             noise_real = batch[0].real

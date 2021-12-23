@@ -137,14 +137,58 @@ SCALING = 0
 # print("scaled back min and max: ", torch.min(scaled_back), torch.max(scaled_back))
 
 
+MASK_DOMAIN_COMPARISON = 0
+
+clean_audio, clean_sr = load(VOICEBANK_ROOT + "clean_trainset_28spk_wav/" + "p226_001.wav", normalize=True)
+clean_audio = torch.squeeze(clean_audio)
+print("train_sr: ", clean_sr)
+
+noisy_audio, noisy_sr = load(VOICEBANK_ROOT + "noisy_trainset_28spk_wav/" + "p226_001.wav", normalize=True)
+noisy_audio = torch.squeeze(noisy_audio)
+print("train_sr: ", noisy_sr)
+
+clean_data = torch.stft(clean_audio, n_fft=config.fft_size, hop_length=config.hop_length, \
+        win_length=config.window_length, window=config.window, return_complex=True, \
+        normalized=config.normalise_stft)
+
+noisy_data = torch.stft(noisy_audio, n_fft=config.fft_size, hop_length=config.hop_length, \
+        win_length=config.window_length, window=config.window, return_complex=True, \
+        normalized=config.normalise_stft)
+
+mask = cRM(clean_data, noisy_data)
+cartesian_output = complex_mat_mult(noisy_data, mask)
+cartesian_audio_recon = torch.istft(cartesian_output, n_fft=config.fft_size, hop_length=config.hop_length, \
+        win_length=config.window_length, normalized=config.normalise_stft)
+write(OUTPUT_FILES + "cartesian_output.wav", config.file_sr, cartesian_audio_recon.cpu().numpy())
+
+mask_mag = torch.abs(mask)
+mask_phase = torch.angle(mask)
+noisy_mag = torch.abs(noisy_data)
+noisy_phase = torch.angle(noisy_data)
+polar_mag = mask_mag * noisy_mag
+polar_phase = mask_phase + noisy_phase
+real = polar_mag * torch.cos(polar_phase)
+imag = polar_mag * torch.sin(polar_phase)
+polar_output = torch.complex(real, imag)
+
+polar_audio_recon = torch.istft(polar_output, n_fft=config.fft_size, hop_length=config.hop_length, \
+        win_length=config.window_length, normalized=config.normalise_stft)
+write(OUTPUT_FILES + "polar_output.wav", config.file_sr, polar_audio_recon.cpu().numpy())
+
+cartesian_L1 = config.L1(clean_audio, cartesian_audio_recon)
+polar_L1 = config.L1(clean_audio, polar_audio_recon)
+print("cartesian_L1: ", cartesian_L1)
+print("polar_L1: ", polar_L1)
+
+
 DATA_LOADING = 0
 
-train_orig, train_sr = load(VOICEBANK_ROOT + "clean_trainset_28spk_wav/p287_420.wav")
-print("train_sr: ", train_sr)
-write(OUTPUT_FILES + "loadtest.wav", config.sr, train_orig[0].numpy())
-test_orig, test_sr = load(VOICEBANK_ROOT + "clean_testset_wav/p232_002.wav")
-print("test_sr: ", test_sr)
-write(OUTPUT_FILES + "loadtest.wav", config.sr, test_orig[0].numpy())
+# train_orig, train_sr = load(VOICEBANK_ROOT + "clean_trainset_28spk_wav/p287_420.wav")
+# print("train_sr: ", train_sr)
+# write(OUTPUT_FILES + "loadtest.wav", config.sr, train_orig[0].numpy())
+# test_orig, test_sr = load(VOICEBANK_ROOT + "clean_testset_wav/p232_002.wav")
+# print("test_sr: ", test_sr)
+# write(OUTPUT_FILES + "loadtest.wav", config.sr, test_orig[0].numpy())
 
 # orig, sr = load(VOICEBANK_ROOT + "clean_testset_wav/" + "p232_010.wav", normalize=True)
 # resampler = torchaudio.transforms.Resample(sr, config.sr, dtype=orig.dtype)

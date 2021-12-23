@@ -53,7 +53,7 @@ hparams = {'lr': 10e-5,
 class Config(object):
     def __init__(self):
         self.tune = False
-        self.load_data_into_RAM = False
+        self.load_data_into_RAM = True
         self.sr = 16000
         self.file_sr = 48000
         self.resample = torchaudio.transforms.Resample(orig_freq=self.file_sr, new_freq=self.sr)
