@@ -1,10 +1,87 @@
 import torch
 import pytorch_lightning as pl
 from scipy.io.wavfile import write
-from network_functions import *
 from pytorch_lightning.core.lightning import LightningModule
-from complexPyTorch.complexLayers import ComplexConv2d, ComplexConvTranspose2d, ComplexLinear, ComplexBatchNorm2d
-from complexPyTorch.complexFunctions import complex_upsample
+from complexPyTorch.complexLayers import *
+del globals()['ComplexAvgPool2d']
+from complexPyTorch.complexFunctions import complex_upsample, complex_relu
+from network_functions import *
+
+
+# source https://github.com/huyanxin/DeepComplexCRN/blob/bc6fd38b0af9e8feb716c81ff8fbacd7f71ad82f/complexnn.py
+class ComplexLSTM(torch.nn.Module):
+    def __init__(self, input_size, hidden_size, num_layers, bidirectional, batch_first, projection_dim=None):
+        super(ComplexLSTM, self).__init__()
+
+        self.input_dim = input_size
+        self.rnn_units = hidden_size
+        self.real_lstm = torch.nn.LSTM(input_size=self.input_dim, hidden_size=self.rnn_units, num_layers=num_layers,
+                        bidirectional=bidirectional, batch_first=batch_first)
+        self.imag_lstm = torch.nn.LSTM(input_size=self.input_dim, hidden_size=self.rnn_units, num_layers=num_layers,
+                        bidirectional=bidirectional, batch_first=batch_first)
+        if bidirectional:
+            bidirectional=2
+        else:
+            bidirectional=1
+        if projection_dim is not None:
+            self.projection_dim = projection_dim 
+            self.r_trans = torch.nn.Linear(self.rnn_units*bidirectional, self.projection_dim)
+            self.i_trans = torch.nn.Linear(self.rnn_units*bidirectional, self.projection_dim)
+        else:
+            self.projection_dim = None
+
+    def forward(self, inputs):
+        if isinstance(inputs,list):
+            real, imag = inputs.real, inputs.imag 
+        elif isinstance(inputs, torch.Tensor):
+            real, imag = inputs.real, inputs.imag 
+        r2r_out = self.real_lstm(real)[0]
+        r2i_out = self.imag_lstm(real)[0]
+        i2r_out = self.real_lstm(imag)[0]
+        i2i_out = self.imag_lstm(imag)[0]
+        real_out = r2r_out - i2i_out
+        imag_out = i2r_out + r2i_out 
+        if self.projection_dim is not None:
+            real_out = self.r_trans(real_out)
+            imag_out = self.i_trans(imag_out)
+        return torch.complex(real_out, imag_out)
+    
+    def flatten_parameters(self):
+        self.imag_lstm.flatten_parameters()
+        self.real_lstm.flatten_parameters()
+
+class ComplexChannelAttention(torch.nn.Module):
+    def __init__ (self, no_channels, reduction_ratio):
+        super(ComplexChannelAttention, self).__init__()
+        self.avg_pool = ComplexAdaptiveAvgPool2d(1)
+        self.max_pool = ComplexAdaptiveMaxPool2d(1)
+        self.fc = torch.nn.Sequential(ComplexConv2d(no_channels, max(no_channels // reduction_ratio, 1), kernel_size=1, bias=False),
+                                    ComplexReLU(),
+                                    ComplexConv2d(max(no_channels // reduction_ratio, 1), no_channels, kernel_size=1, bias=False))
+        self.sigmoid = ComplexSigmoid()
+
+    def forward(self, x):
+        avg_out = self.avg_pool(x) 
+        avg_out_fc = self.fc(avg_out)
+        max_out = self.max_pool(x)
+        max_out_fc = self.fc(max_out)
+        out = avg_out_fc + max_out_fc
+        return self.sigmoid(out)
+
+class ComplexSpatialAttention(torch.nn.Module):
+    def __init__(self, kernel_size):
+        super(ComplexSpatialAttention, self).__init__()
+        self.conv1 = ComplexConv2d(2, 1, kernel_size, padding = kernel_size // 2, bias=False)
+        self.sigmoid = ComplexSigmoid()
+
+    def forward(self, x):
+        avg_out = torch.mean(x, dim=1, keepdim=True)
+        max_out_real, _ = torch.max(x.real, dim=1, keepdim=True)
+        max_out_imag, _ = torch.max(x.imag, dim=1, keepdim=True)
+        max_out = torch.complex(max_out_real, max_out_imag)
+        x = torch.cat([avg_out, max_out], dim=1)
+        x = self.conv1(x)
+        return self.sigmoid(x)
 
 
 class C_NETWORK(LightningModule):
@@ -17,18 +94,24 @@ class C_NETWORK(LightningModule):
 
         self.encoder = torch.nn.ModuleList()
         self.decoder = torch.nn.ModuleList()
+        self.decoder_attention = torch.nn.ModuleList()
+        self.skip_attention = torch.nn.ModuleList()
 
         # Encoder
         for i in range(self.hparams['no_of_layers']):
-            enc_layer = ComplexConv2d(
-                        in_channels=1 if i == 0 else self.hparams['channels'][i] // 2,
-                        out_channels=self.hparams['channels'][i + 1] // 2,
-                        kernel_size=self.config.kernel_sizeE[i],
-                        stride=self.config.strideE[i],
-                        padding=self.config.paddingE[i])
-            self.encoder.append(enc_layer)
-            enc_bn = ComplexBatchNorm2d(self.hparams['channels'][i + 1] // 2)
-            self.encoder.append(enc_bn)
+            if i == 0:
+                in_channels = 1
+            else:
+                in_channels = self.hparams['channels'][i] // 2
+            enc_block = torch.nn.Sequential(ComplexConv2d(
+                                                in_channels=in_channels,
+                                                out_channels=self.hparams['channels'][i + 1] // 2,
+                                                kernel_size=self.config.kernel_sizeE[i],
+                                                stride=self.config.strideE[i],
+                                                padding=self.config.paddingE[i]),
+                                            ComplexBatchNorm2d(self.hparams['channels'][i + 1] // 2),
+                                            self.config.CactivationE())
+            self.encoder.append(enc_block)
 
         # Latent space
         self.lstm = ComplexLSTM(
@@ -43,24 +126,40 @@ class C_NETWORK(LightningModule):
 
         # Decoder
         for i in range(self.hparams['no_of_layers']):
-            current_layer_channels = self.hparams['channels'][self.hparams['no_of_layers'] - i]
+            in_channels = self.hparams['channels'][self.hparams['no_of_layers'] - i]
+            in_and_skip_channels = (in_channels + in_channels) // 2
+            in_channels = in_channels // 2
+            out_channels = max(self.hparams['channels'][self.hparams['no_of_layers'] - 1 - i] // 2, 1)
             if i == self.hparams['no_of_layers'] - 1:
-                next_layer_channels = 1
-                in_channels = ((current_layer_channels + next_layer_channels) // 2) + 1
-                out_channels = 1
+                dec_block = ComplexConvTranspose2d(
+                                                in_and_skip_channels,
+                                                out_channels,
+                                                kernel_size=self.config.kernel_sizeD[i],
+                                                stride=self.config.strideD,
+                                                padding=self.config.paddingD[i])
             else:
-                next_layer_channels = self.hparams['channels'][self.hparams['no_of_layers'] - 1 - i]
-                in_channels = (current_layer_channels + next_layer_channels) // 2
-                out_channels = next_layer_channels // 2
-            dec_layer = ComplexConvTranspose2d(
-                        in_channels,
-                        out_channels,
-                        kernel_size=self.config.kernel_sizeD[i],
-                        stride=self.config.strideD,
-                        padding=self.config.paddingD[i])
-            self.decoder.append(dec_layer)
-            dec_bn = ComplexBatchNorm2d(self.hparams['channels'][self.hparams['no_of_layers'] - 1 - i] // 2)
-            self.decoder.append(dec_bn)
+                dec_block = torch.nn.Sequential(ComplexConvTranspose2d(
+                                                    in_and_skip_channels,
+                                                    out_channels,
+                                                    kernel_size=self.config.kernel_sizeD[i],
+                                                    stride=self.config.strideD,
+                                                    padding=self.config.paddingD[i]),
+                                                ComplexBatchNorm2d(self.hparams['channels'][self.hparams['no_of_layers'] \
+                                                    - 1 - i] // 2),
+                                                self.config.CactivationD())
+            self.decoder.append(dec_block)
+
+            # Skip connection attention
+            skip_channel_attenion = ComplexChannelAttention(in_channels, self.hparams['channel_attention_reduction_ratio'])
+            skip_spatial_attention = ComplexSpatialAttention(self.hparams['spatial_attention_kernel_size'])
+            self.skip_attention.append(skip_channel_attenion)
+            self.skip_attention.append(skip_spatial_attention)
+
+            # Decoder attention
+            decoder_channel_attenion = ComplexChannelAttention(out_channels, self.hparams['channel_attention_reduction_ratio'])
+            decoder_spatial_attention = ComplexSpatialAttention(self.hparams['spatial_attention_kernel_size'])
+            self.decoder_attention.append(decoder_channel_attenion)
+            self.decoder_attention.append(decoder_spatial_attention)
 
         self.dropout_conv = torch.nn.Dropout(self.hparams['dropout_conv'])
         self.dropout_fc = torch.nn.Dropout(self.hparams['dropout_fc'])
@@ -90,9 +189,7 @@ class C_NETWORK(LightningModule):
         enc_out.append(x.view(x.shape[0], -1, x.shape[1], x.shape[2]))
         
         for i in range(self.hparams['no_of_layers']):
-            e = self.encoder[i*2](enc_out[i])
-            e = self.encoder[(i*2)+1](e)
-            e = self.config.CactivationE(e)
+            e = self.encoder[i](enc_out[i])
             e = self.dropout_conv(torch.view_as_real(e))
             e = torch.view_as_complex(e)
             enc_out.append(e)
@@ -106,17 +203,21 @@ class C_NETWORK(LightningModule):
         d = fc_out.permute(0, 2, 1).reshape(latent_shape[0], latent_shape[1], latent_shape[2], latent_shape[3])
 
         for i in range(self.hparams['no_of_layers']):
+            dec_skip_channel_attention = self.skip_attention[(i*2)](enc_out[self.hparams['no_of_layers'] - i])
+            skip_ca = dec_skip_channel_attention * enc_out[self.hparams['no_of_layers'] - i]
+            dec_skip_spatial_attention = self.skip_attention[(i*2)+1](skip_ca)
+            skip_sa = dec_skip_spatial_attention * skip_ca
+            # skip_sa = enc_out[self.hparams['no_of_layers'] - i]
+
+            d = torch.cat((d, skip_sa), dim=1)
             d = complex_upsample(d, scale_factor=self.config.upsample_scale_factor[i],
                                         mode=self.config.upsampling_mode)
-            d = torch.cat((d, enc_out[self.hparams['no_of_layers'] - 1 - i]), dim=1)
-            if i == self.hparams['no_of_layers'] - 1:
-                d = self.decoder[i*2](d)
-            else:
-                d = self.decoder[i*2](d)
-                d = self.decoder[(i*2)+1](d) 
-                d = self.config.CactivationD(d)
+            d = self.decoder[i](d)
             d = self.dropout_conv(torch.view_as_real(d))
             d = torch.view_as_complex(d)
+            if i != self.hparams['no_of_layers'] - 1:
+                d *= self.decoder_attention[(i*2)](d)
+                d *= self.decoder_attention[(i*2)+1](d)
 
         net_out = torch.squeeze(d)
         net_out_bound = bound_cRM(net_out, self.hparams)

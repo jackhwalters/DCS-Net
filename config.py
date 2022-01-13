@@ -2,8 +2,8 @@ import os
 import torchaudio
 from sys import platform
 from torch import nn, hann_window, cuda, optim
-from complexPyTorch.complexFunctions import complex_relu
-from network_functions import SiSNR, wSDR, complex_lrelu
+from complexPyTorch.complexLayers import ComplexReLU
+from network_functions import SiSNR, wSDR, ComplexLReLU
 
 if platform == "linux":
     VOICEBANK_ROOT = "/import/scratch-01/jhw31/DS_10283_2791/"
@@ -48,7 +48,9 @@ hparams = {'lr': 10e-5,
             'gradient_clip_val': 10.0,
             'gradient_clip_algorithm': "norm",
             'stochastic_weight_avg': True,
-            'dataset_type': 28}
+            'dataset_type': 28,
+            'channel_attention_reduction_ratio': 16,
+            'spatial_attention_kernel_size': 7}
 
 class Config(object):
     def __init__(self):
@@ -99,8 +101,8 @@ class Config(object):
         self.initialisation_distribution = nn.init.xavier_uniform_
         self.RactivationE = nn.functional.relu
         self.RactivationD = nn.functional.leaky_relu
-        self.CactivationE = complex_relu 
-        self.CactivationD = complex_lrelu
+        self.CactivationE = ComplexReLU
+        self.CactivationD = ComplexLReLU
         self.upsample_scale_factor = [(2,1), (2,1), (2,1), (2,1), (2,2), (2,2), (2,2)]
         self.upsampling_mode = 'nearest'
         

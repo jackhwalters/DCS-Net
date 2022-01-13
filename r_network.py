@@ -252,3 +252,36 @@ class R_NETWORK(LightningModule):
             vals_mean = torch.mean(vals)
             self.logger.experiment.add_scalar("grad val avg", vals_mean, global_step=self.trainer.global_step)
             self.logger.experiment.add_scalar("grad norm", norm, global_step=self.trainer.global_step)
+
+# source https://github.com/luuuyi/CBAM.PyTorch/blob/83d3312c8c542d71dfbb60ee3a15454ba253a2b0/model/resnet_cbam.py
+class ChannelAttention(torch.nn.Module):
+    def __init__(self, no_channels, reduction_ratio):
+        super(ChannelAttention, self).__init__()
+        self.avg_pool = torch.nn.AdaptiveAvgPool2d(1)
+        self.max_pool = torch.nn.AdaptiveMaxPool2d(1)
+           
+        self.fc = torch.nn.Sequential(torch.nn.Conv2d(no_channels, no_channels // reduction_ratio, 1, bias=False),
+                               torch.nn.ReLU(),
+                               torch.nn.Conv2d(no_channels // reduction_ratio, no_channels, 1, bias=False))
+        self.sigmoid = torch.nn.Sigmoid()
+
+    def forward(self, x):
+        avg_out = self.fc(self.avg_pool(x))
+        max_out = self.fc(self.max_pool(x))
+        out = avg_out + max_out
+        return self.sigmoid(out)
+
+# source https://github.com/luuuyi/CBAM.PyTorch/blob/83d3312c8c542d71dfbb60ee3a15454ba253a2b0/model/resnet_cbam.py
+class SpatialAttention(torch.nn.Module):
+    def __init__(self, kernel_size=7):
+        super(SpatialAttention, self).__init__()
+
+        self.conv1 = torch.nn.Conv2d(2, 1, kernel_size, padding=kernel_size//2, bias=False)
+        self.sigmoid = torch.nn.Sigmoid()
+
+    def forward(self, x):
+        avg_out = torch.mean(x, dim=1, keepdim=True)
+        max_out, _ = torch.max(x, dim=1, keepdim=True)
+        x = torch.cat([avg_out, max_out], dim=1)
+        x = self.conv1(x)
+        return self.sigmoid(x)

@@ -94,55 +94,72 @@ def complex_mat_mult(A, B):
 
     return Y
 
+class ComplexLReLU(torch.nn.Module):
+
+     def forward(self,input):
+         return complex_lrelu(input)
+
 def complex_lrelu(input):
     # return torch.nn.functional.leaky_relu(input.real) + 1j*torch.nn.functional.leaky_relu(input.imag)
     return torch.complex(torch.nn.functional.leaky_relu(input.real), torch.nn.functional.leaky_relu(input.imag))
 
-def apply_complex(fr, fi, input):
-    # return (fr(input.real)[0]-fi(input.imag)[0]) + 1j*(fr(input.imag)[0]+fi(input.real)[0])
-    return torch.complex(fr(input.real)-fi(input.imag), (fr(input.imag)+fi(input.real)))
+class ComplexSigmoid(torch.nn.Module):
+     def forward(self,input):
+         return complex_sigmoid(input)
 
-# source https://github.com/huyanxin/DeepComplexCRN/blob/bc6fd38b0af9e8feb716c81ff8fbacd7f71ad82f/complexnn.py
-class ComplexLSTM(torch.nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers, bidirectional, batch_first, projection_dim=None):
-        super(ComplexLSTM, self).__init__()
+def complex_sigmoid(input):
+    return torch.sigmoid(input.real).type(torch.complex64)+1j*torch.sigmoid(input.imag).type(torch.complex64)
 
-        self.input_dim = input_size
-        self.rnn_units = hidden_size
-        self.real_lstm = torch.nn.LSTM(input_size=self.input_dim, hidden_size=self.rnn_units, num_layers=num_layers,
-                        bidirectional=bidirectional, batch_first=batch_first)
-        self.imag_lstm = torch.nn.LSTM(input_size=self.input_dim, hidden_size=self.rnn_units, num_layers=num_layers,
-                        bidirectional=bidirectional, batch_first=batch_first)
-        if bidirectional:
-            bidirectional=2
-        else:
-            bidirectional=1
-        if projection_dim is not None:
-            self.projection_dim = projection_dim 
-            self.r_trans = torch.nn.Linear(self.rnn_units*bidirectional, self.projection_dim)
-            self.i_trans = torch.nn.Linear(self.rnn_units*bidirectional, self.projection_dim)
-        else:
-            self.projection_dim = None
+# class ComplexAvgPool2d(torch.nn.Module):
+#     def __init__(self,kernel_size, stride = None, padding = 0,
+#                  ceil_mode = False, count_include_pad = True, divisor_override = None):
+#         super(ComplexAvgPool2d,self).__init__()
+#         self.kernel_size = kernel_size
+#         self.stride = stride
+#         self.padding = padding
+#         self.ceil_mode = ceil_mode
+#         self.count_include_pad = count_include_pad
+#         self.divisor_override = divisor_override
 
-    def forward(self, inputs):
-        if isinstance(inputs,list):
-            real, imag = inputs.real, inputs.imag 
-        elif isinstance(inputs, torch.Tensor):
-            real, imag = inputs.real, inputs.imag 
-        r2r_out = self.real_lstm(real)[0]
-        r2i_out = self.imag_lstm(real)[0]
-        i2r_out = self.real_lstm(imag)[0]
-        i2i_out = self.imag_lstm(imag)[0]
-        real_out = r2r_out - i2i_out
-        imag_out = i2r_out + r2i_out 
-        if self.projection_dim is not None:
-            real_out = self.r_trans(real_out)
-            imag_out = self.i_trans(imag_out)
-        return torch.complex(real_out, imag_out)
-    
-    def flatten_parameters(self):
-        self.imag_lstm.flatten_parameters()
-        self.real_lstm.flatten_parameters()
+#     def forward(self,input):
+#         return complex_avg_pool2d(input,kernel_size = self.kernel_size,
+#                                 stride = self.stride, padding = self.padding,
+#                                 ceil_mode = self.ceil_mode, count_include_pad = self.count_include_pad,
+#                                 divisor_override = self.divisor_override)
+
+# def complex_avg_pool2d(input, *args, **kwargs):
+#     print("complex_avg_pool2d input.real.shape: ", input.real.shape)
+#     absolute_value_real = torch.nn.functional.avg_pool2d(input.real, *args, **kwargs)
+#     print("complex_avg_pool2d absolute_value_real.shape: ", absolute_value_real.shape)
+#     absolute_value_imag =  torch.nn.functional.avg_pool2d(input.imag, *args, **kwargs)    
+#     return absolute_value_real.type(torch.complex64)+1j*absolute_value_imag.type(torch.complex64)
+
+class ComplexAdaptiveAvgPool2d(torch.nn.Module):
+    def __init__(self, output_size):
+        super(ComplexAdaptiveAvgPool2d, self).__init__()
+        self.output_size = output_size
+
+    def forward(self, input):
+        return complex_adaptive_avg_pool2d(input, output_size = self.output_size)
+
+def complex_adaptive_avg_pool2d(input, *args, **kwargs):
+    absolute_value_real = torch.nn.functional.adaptive_avg_pool2d(input.real, *args, **kwargs)
+    absolute_value_imag =  torch.nn.functional.adaptive_avg_pool2d(input.imag, *args, **kwargs)    
+    return absolute_value_real.type(torch.complex64)+1j*absolute_value_imag.type(torch.complex64)
+
+class ComplexAdaptiveMaxPool2d(torch.nn.Module):
+    def __init__(self, output_size):
+        super(ComplexAdaptiveMaxPool2d, self).__init__()
+        self.output_size = output_size
+
+    def forward(self, input):
+        return complex_adaptive_max_pool2d(input, output_size = self.output_size)
+
+def complex_adaptive_max_pool2d(input, *args, **kwargs):
+    max_value_real = torch.nn.functional.adaptive_avg_pool2d(input.real, *args, **kwargs)
+    max_value_imag =  torch.nn.functional.adaptive_avg_pool2d(input.imag, *args, **kwargs)    
+    return max_value_real.type(torch.complex64)+1j*max_value_imag.type(torch.complex64)
+
 
 def mag_phase_2_wave(mag, phase, config):
     real = mag * torch.cos(phase)
