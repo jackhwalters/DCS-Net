@@ -4,6 +4,42 @@ from network_functions import *
 from pytorch_lightning.core.lightning import LightningModule
 
 
+# source https://github.com/luuuyi/CBAM.PyTorch/blob/83d3312c8c542d71dfbb60ee3a15454ba253a2b0/model/resnet_cbam.py
+class RealChannelAttention(torch.nn.Module):
+    def __init__(self, no_channels, reduction_ratio):
+        super(RealChannelAttention, self).__init__()
+        self.avg_pool = torch.nn.AdaptiveAvgPool2d(1)
+        self.max_pool = torch.nn.AdaptiveMaxPool2d(1, return_indices=False)
+        self.fc = torch.nn.Sequential(torch.nn.Conv2d(no_channels, max(no_channels // reduction_ratio, 1), 1, bias=False),
+                               torch.nn.ReLU(),
+                               torch.nn.Conv2d(max(no_channels // reduction_ratio, 1), no_channels, 1, bias=False))
+        self.sigmoid = torch.nn.Sigmoid()
+
+    def forward(self, x):
+        avg_out = self.avg_pool(x) 
+        avg_out_fc = self.fc(avg_out)
+        max_out = self.max_pool(x)
+        max_out_fc = self.fc(max_out)
+        out = avg_out_fc + max_out_fc
+        out = max_out_fc
+        return self.sigmoid(out)
+
+# source https://github.com/luuuyi/CBAM.PyTorch/blob/83d3312c8c542d71dfbb60ee3a15454ba253a2b0/model/resnet_cbam.py
+class RealSpatialAttention(torch.nn.Module):
+    def __init__(self, kernel_size):
+        super(RealSpatialAttention, self).__init__()
+
+        self.conv1 = torch.nn.Conv2d(2, 1, kernel_size, padding=kernel_size//2, bias=False)
+        self.sigmoid = torch.nn.Sigmoid()
+
+    def forward(self, x):
+        avg_out = torch.mean(x, dim=1, keepdim=True)
+        max_out, _ = torch.max(x, dim=1, keepdim=True)
+        x = torch.cat([avg_out, max_out], dim=1)
+        x = self.conv1(x)
+        return self.sigmoid(x)
+
+
 class R_NETWORK(LightningModule):
     def __init__(self, config, hparams, seed):
         super().__init__()
@@ -14,19 +50,22 @@ class R_NETWORK(LightningModule):
 
         self.encoder = torch.nn.ModuleList()
         self.decoder = torch.nn.ModuleList()
+        self.decoder_attention = torch.nn.ModuleList()
+        self.skip_attention = torch.nn.ModuleList()
 
         # Encoder
         for i in range(self.hparams['no_of_layers']):
-            enc_layer = torch.nn.Conv2d(
-                        in_channels=1 if i == 0 else self.hparams['channels'][i],
-                        out_channels=self.hparams['channels'][i + 1],
-                        kernel_size=self.config.kernel_sizeE[i],
-                        stride=self.config.strideE[i],
-                        padding=self.config.paddingE[i])
-            self.encoder.append(enc_layer)
-            enc_bn = torch.nn.BatchNorm2d(self.hparams['channels'][i + 1])
-            self.encoder.append(enc_bn)
+            enc_block = torch.nn.Sequential(torch.nn.Conv2d(
+                                                in_channels=1 if i == 0 else self.hparams['channels'][i],
+                                                out_channels=self.hparams['channels'][i + 1],
+                                                kernel_size=self.config.kernel_sizeE[i],
+                                                stride=self.config.strideE[i],
+                                                padding=self.config.paddingE[i]),
+                                            torch.nn.BatchNorm2d(self.hparams['channels'][i + 1]),
+                                            self.config.RactivationE())
+            self.encoder.append(enc_block)
 
+        # Latent space
         self.lstm = torch.nn.LSTM(input_size=self.hparams['channels'][5],
                         hidden_size=self.hparams['channels'][4],
                         num_layers=self.hparams['lstm_layers'],
@@ -40,24 +79,40 @@ class R_NETWORK(LightningModule):
 
         # Decoder
         for i in range(self.hparams['no_of_layers']):
-            current_layer_channels = self.hparams['channels'][self.hparams['no_of_layers'] - i] 
+            in_channels = self.hparams['channels'][self.hparams['no_of_layers'] - i]
+            in_and_skip_channels = (in_channels + in_channels)
+            in_channels = in_channels
+            out_channels = max(self.hparams['channels'][self.hparams['no_of_layers'] - 1 - i], 1)
             if i == self.hparams['no_of_layers'] - 1:
-                next_layer_channels = 1
-                in_channels = ((current_layer_channels + next_layer_channels))
-                out_channels = 1
+                dec_block = torch.nn.ConvTranspose2d(
+                                                in_and_skip_channels,
+                                                out_channels,
+                                                kernel_size=self.config.kernel_sizeD[i],
+                                                stride=self.config.strideD,
+                                                padding=self.config.paddingD[i])
             else:
-                next_layer_channels = self.hparams['channels'][self.hparams['no_of_layers'] - 1 - i]
-                in_channels = (current_layer_channels + next_layer_channels)
-                out_channels = next_layer_channels
-            dec_layer = torch.nn.ConvTranspose2d(
-                        in_channels,
-                        out_channels,
-                        kernel_size=self.config.kernel_sizeD[i],
-                        stride=self.config.strideD,
-                        padding=self.config.paddingD[i])
-            self.decoder.append(dec_layer)
-            dec_bn = torch.nn.BatchNorm2d(self.hparams['channels'][self.hparams['no_of_layers'] - 1 - i])
-            self.decoder.append(dec_bn)
+                dec_block = torch.nn.Sequential(torch.nn.ConvTranspose2d(
+                                                    in_and_skip_channels,
+                                                    out_channels,
+                                                    kernel_size=self.config.kernel_sizeD[i],
+                                                    stride=self.config.strideD,
+                                                    padding=self.config.paddingD[i]),
+                                                torch.nn.BatchNorm2d(self.hparams['channels'][self.hparams['no_of_layers'] \
+                                                    - 1 - i]),
+                                                self.config.RactivationD())
+            self.decoder.append(dec_block)
+
+            # Skip connection attention
+            skip_channel_attenion = RealChannelAttention(in_channels, self.hparams['channel_attention_reduction_ratio'])
+            skip_spatial_attention = RealSpatialAttention(self.hparams['spatial_attention_kernel_size'])
+            self.skip_attention.append(skip_channel_attenion)
+            self.skip_attention.append(skip_spatial_attention)
+
+            # Decoder attention
+            decoder_channel_attenion = RealChannelAttention(out_channels, self.hparams['channel_attention_reduction_ratio'])
+            decoder_spatial_attention = RealSpatialAttention(self.hparams['spatial_attention_kernel_size'])
+            self.decoder_attention.append(decoder_channel_attenion)
+            self.decoder_attention.append(decoder_spatial_attention)
 
         self.weights_init()
 
@@ -68,13 +123,13 @@ class R_NETWORK(LightningModule):
     def weights_init(self):
         for m in self.modules():
             if isinstance(m, torch.nn.Conv2d):
-                self.config.initialisation_distribution(m.weight)
+                self.hparams['initialisation_distribution'](m.weight)
                 print("Initialised Conv2d")
             elif isinstance(m, torch.nn.ConvTranspose2d):
-                self.config.initialisation_distribution(m.weight)
+                self.hparams['initialisation_distribution'](m.weight)
                 print("Initialised ConvTranspose2d")
             elif isinstance(m, torch.nn.Linear):
-                self.config.initialisation_distribution(m.weight)
+                self.hparams['initialisation_distribution'](m.weight)
                 print("Initialised Linear")
 
 
@@ -84,9 +139,7 @@ class R_NETWORK(LightningModule):
         enc_out.append(x.view(x.shape[0], -1, x.shape[1], x.shape[2]))
 
         for i in range(self.hparams['no_of_layers']):
-            e = self.encoder[i*2](enc_out[i])
-            e = self.encoder[(i*2)+1](e)
-            e = self.config.RactivationE(e)
+            e = self.encoder[i](enc_out[i])
             e = self.dropout_conv(e)
             enc_out.append(e)
 
@@ -98,16 +151,20 @@ class R_NETWORK(LightningModule):
         d = fc_out.permute(0, 2, 1).reshape(latent_shape[0], latent_shape[1], latent_shape[2], latent_shape[3])
 
         for i in range(self.hparams['no_of_layers']):
+            dec_skip_channel_attention = self.skip_attention[(i*2)](enc_out[self.hparams['no_of_layers'] - i])
+            skip_ca = dec_skip_channel_attention * enc_out[self.hparams['no_of_layers'] - i]
+            dec_skip_spatial_attention = self.skip_attention[(i*2)+1](skip_ca)
+            skip_sa = dec_skip_spatial_attention * skip_ca
+            # skip_sa = enc_out[self.hparams['no_of_layers'] - i]
+
+            d = torch.cat((d, skip_sa), dim=1)
             self.upsample = torch.nn.Upsample(scale_factor=self.config.upsample_scale_factor[i], mode=self.config.upsampling_mode)
             d = self.upsample(d)
-            d = torch.cat((d, enc_out[self.hparams['no_of_layers'] - 1 - i]), dim=1)
-            if i == self.hparams['no_of_layers'] - 1:
-                d = self.decoder[i*2](d)
-            else:
-                d = self.decoder[i*2](d)
-                d = self.decoder[(i*2)+1](d) 
-                d = self.config.RactivationD(d)
-                d = self.dropout_conv(d)
+            d = self.decoder[i](d)
+            if i != self.hparams['no_of_layers'] - 1:
+                d = d * self.decoder_attention[(i*2)](d)
+                d = d * self.decoder_attention[(i*2)+1](d)
+            d = self.dropout_conv(d)
 
         net_out = torch.squeeze(d)
         net_out_bound = torch.sigmoid(net_out)
@@ -252,36 +309,3 @@ class R_NETWORK(LightningModule):
             vals_mean = torch.mean(vals)
             self.logger.experiment.add_scalar("grad val avg", vals_mean, global_step=self.trainer.global_step)
             self.logger.experiment.add_scalar("grad norm", norm, global_step=self.trainer.global_step)
-
-# source https://github.com/luuuyi/CBAM.PyTorch/blob/83d3312c8c542d71dfbb60ee3a15454ba253a2b0/model/resnet_cbam.py
-class ChannelAttention(torch.nn.Module):
-    def __init__(self, no_channels, reduction_ratio):
-        super(ChannelAttention, self).__init__()
-        self.avg_pool = torch.nn.AdaptiveAvgPool2d(1)
-        self.max_pool = torch.nn.AdaptiveMaxPool2d(1)
-           
-        self.fc = torch.nn.Sequential(torch.nn.Conv2d(no_channels, no_channels // reduction_ratio, 1, bias=False),
-                               torch.nn.ReLU(),
-                               torch.nn.Conv2d(no_channels // reduction_ratio, no_channels, 1, bias=False))
-        self.sigmoid = torch.nn.Sigmoid()
-
-    def forward(self, x):
-        avg_out = self.fc(self.avg_pool(x))
-        max_out = self.fc(self.max_pool(x))
-        out = avg_out + max_out
-        return self.sigmoid(out)
-
-# source https://github.com/luuuyi/CBAM.PyTorch/blob/83d3312c8c542d71dfbb60ee3a15454ba253a2b0/model/resnet_cbam.py
-class SpatialAttention(torch.nn.Module):
-    def __init__(self, kernel_size=7):
-        super(SpatialAttention, self).__init__()
-
-        self.conv1 = torch.nn.Conv2d(2, 1, kernel_size, padding=kernel_size//2, bias=False)
-        self.sigmoid = torch.nn.Sigmoid()
-
-    def forward(self, x):
-        avg_out = torch.mean(x, dim=1, keepdim=True)
-        max_out, _ = torch.max(x, dim=1, keepdim=True)
-        x = torch.cat([avg_out, max_out], dim=1)
-        x = self.conv1(x)
-        return self.sigmoid(x)

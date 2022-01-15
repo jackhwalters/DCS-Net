@@ -27,7 +27,8 @@ MATLAB_ROOT = "../MATLAB/"
 
 # speech_loss_type
 # 0 SiSNR
-hparams = {'lr': 10e-5,
+hparams = {'lr': 10e-6,
+            'initialisation_distribution': nn.init.kaiming_uniform_,
             'noise_alpha': 1,
             'speech_alpha': 0.25,
             'no_of_layers': 7,
@@ -55,7 +56,7 @@ hparams = {'lr': 10e-5,
 class Config(object):
     def __init__(self):
         self.tune = False
-        self.load_data_into_RAM = True
+        self.load_data_into_RAM = False
         self.sr = 16000
         self.file_sr = 48000
         self.resample = torchaudio.transforms.Resample(orig_freq=self.file_sr, new_freq=self.sr)
@@ -98,9 +99,8 @@ class Config(object):
                         self.kernel_sizeD[6] // 2]
         self.strideE = [(2,2),(2,2),(2,2),(2,1),(2,1),(2,1),(2,1)]
         self.strideD = (1,1)
-        self.initialisation_distribution = nn.init.xavier_uniform_
-        self.RactivationE = nn.functional.relu
-        self.RactivationD = nn.functional.leaky_relu
+        self.RactivationE = nn.ReLU 
+        self.RactivationD = nn.LeakyReLU
         self.CactivationE = ComplexReLU
         self.CactivationD = ComplexLReLU
         self.upsample_scale_factor = [(2,1), (2,1), (2,1), (2,1), (2,2), (2,2), (2,2)]
@@ -113,7 +113,7 @@ class Config(object):
 
         self.val_log_sample_size = 1
         self.seed = 0
-        self.data_minC = -69.4638
-        self.data_maxC = 69.9589
+        self.data_minC = -113.9526
+        self.data_maxC = 108.5362
         self.data_minR = 0
-        self.data_maxR = 74.6140
+        self.data_maxR = 114.0936

@@ -173,13 +173,13 @@ class C_NETWORK(LightningModule):
     def weights_init(self):
         for m in self.modules():
             if isinstance(m, torch.nn.Conv2d):
-                self.config.initialisation_distribution(m.weight)
+                self.hparams['initialisation_distribution'](m.weight)
                 print("Initialised Conv2d")
             elif isinstance(m, torch.nn.ConvTranspose2d):
-                self.config.initialisation_distribution(m.weight)
+                self.hparams['initialisation_distribution'](m.weight)
                 print("Initialised ConvTranspose2d")
             elif isinstance(m, torch.nn.Linear):
-                self.config.initialisation_distribution(m.weight)
+                self.hparams['initialisation_distribution'](m.weight)
                 print("Initialised Linear")
 
 
@@ -213,11 +213,11 @@ class C_NETWORK(LightningModule):
             d = complex_upsample(d, scale_factor=self.config.upsample_scale_factor[i],
                                         mode=self.config.upsampling_mode)
             d = self.decoder[i](d)
+            if i != self.hparams['no_of_layers'] - 1:
+                d = d * self.decoder_attention[(i*2)](d)
+                d = d * self.decoder_attention[(i*2)+1](d)
             d = self.dropout_conv(torch.view_as_real(d))
             d = torch.view_as_complex(d)
-            if i != self.hparams['no_of_layers'] - 1:
-                d *= self.decoder_attention[(i*2)](d)
-                d *= self.decoder_attention[(i*2)+1](d)
 
         net_out = torch.squeeze(d)
         net_out_bound = bound_cRM(net_out, self.hparams)

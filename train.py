@@ -22,15 +22,13 @@ validation_loader = DataLoader(validation_set, **config.data_params)
 
 if config.tune:
     def objective(trial: optuna.trial.Trial):
-        # hparams["lr"] = trial.suggest_float("Learning rate", 10e-4, 10e-3)
+        hparams["lr"] = trial.suggest_float("Learning rate", 10e-6, 10e-4)
         hparams["noise_alpha"] = trial.suggest_float("Noise alpha", 0, 1)
         hparams["speech_alpha"] = trial.suggest_float("Speech alpha", 0, 1)
         hparams["lstm_layers"] = trial.suggest_int("LSTM layers", 1, 12)
-        # hparams["lstm_bidir"] = trial.suggest_categorical("LSTM bidir", [True, False])
+        hparams["lstm_bidir"] = trial.suggest_categorical("LSTM bidir", [True, False])
         hparams["noise_loss_type"] = trial.suggest_int("Noise loss option", 0, 5)
         hparams["optim_weight_decay"] = trial.suggest_int("Optim weight decay", 10e-6, 10e-5)
-        # hparams["speech_loss_type"] = trial.suggest_int("Speech loss option", 0, 1)
-        hparams["skip_concat"] = trial.suggest_categorical("Skip concat", [True, False])
         if sys.argv[1] == "real":
             network = R_NETWORK(config, hparams, config.seed)
             if platform == "linux":
@@ -104,7 +102,7 @@ elif not config.tune:
             accelerator = None,
             max_epochs=config.max_epochs,
             logger=tb_logger,
-            detect_anomaly=False,
+            detect_anomaly=True,
             num_sanity_val_steps=config.val_log_sample_size,
             precision=config.precision,
             gradient_clip_val=hparams['gradient_clip_val'],
