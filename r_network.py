@@ -181,44 +181,65 @@ class R_NETWORK(LightningModule):
         return {
             'optimizer': optimiser,
             'lr_scheduler': lr_scheduler,
-            'monitor': 'val_loss'
+            'monitor': 'val_loss' if sys.argv[1] == "dcs" or sys.argv[1] == "drs" else 'speech_loss'
         }
 
 
     def training_step(self, train_batch, batch_idx):
-        noise_loss, speech_loss, train_loss = train_batch_2_loss(self, train_batch, batch_idx, dtype="real")
+        if sys.argv[1] == "dcs" or sys.argv[1] == "drs":
+            noise_loss, speech_loss, train_loss = train_batch_2_loss(self, train_batch, batch_idx, dtype="real")
+            metrics = {'train_loss': train_loss.detach(),
+                            'noise_loss': noise_loss.detach(),
+                            'speech_loss': speech_loss.detach()}
+        
+        elif sys.argv[1] == "dc" or sys.argv[1] == "dr":
+            speech_loss = train_batch_2_loss(self, train_batch, batch_idx, dtype="real")
+            metrics = {'speech_loss': speech_loss.detach()}
 
-        metrics = {'train_loss': train_loss.detach(),
-                        'noise_loss': noise_loss.detach(),
-                        'speech_loss': speech_loss.detach()}
         self.log_dict(metrics, on_epoch=True)
-        if torch.any(torch.isnan(train_loss)):
+
+        if torch.any(torch.isnan(train_loss if sys.argv[1] == "dcs" or sys.argv[1] == "drs" else speech_loss)):
             print("found NaN in R train loss!")
             return None
         else: 
-            return train_loss
+            return train_loss if sys.argv[1] == "dcs" or sys.argv[1] == "drs" else speech_loss
 
 
     def validation_step(self, val_batch, val_idx):
-        noise_loss, speech_loss, val_loss, pesq_av, stoi_av, \
-                predict_noise_audio, predict_clean_audio, \
-                    noise_audio, noisy_audio, clean_audio  = \
+        if sys.argv[1] == "dcs" or sys.argv[1] == "drs":
+            noise_loss, speech_loss, val_loss, pesq_av, stoi_av, \
+                    predict_noise_audio, predict_clean_audio, \
+                        noise_audio, noisy_audio, clean_audio  = \
+                            val_batch_2_metric_loss(self, val_batch, val_idx, dtype="real")
+            metrics = {'val_loss': val_loss.detach(),
+                    'val_noise_loss': noise_loss.detach(),
+                    'val_speech_loss': speech_loss.detach(),
+                    'val_pesq': torch.tensor(pesq_av),
+                    'val_stoi': torch.tensor(stoi_av)}
+            output = {
+                "clean": clean_audio.cpu().numpy(),
+                "predict_clean": predict_clean_audio.cpu().numpy(),
+                "noise": noise_audio.cpu().numpy(),
+                "predict_noise": predict_noise_audio.cpu().numpy(),
+                "noisy": noisy_audio.cpu().numpy()
+            }
+
+        elif sys.argv[1] == "dc" or sys.argv[1] == "dr":
+            speech_loss, pesq_av, stoi_av, \
+                predict_clean_audio, \
+                    noise_audio,  noisy_audio,  clean_audio = \
                         val_batch_2_metric_loss(self, val_batch, val_idx, dtype="real")
+            metrics = {'val_speech_loss': speech_loss.detach(),
+                    'val_pesq': torch.tensor(pesq_av),
+                    'val_stoi': torch.tensor(stoi_av)}
+            output = {
+                "clean": clean_audio.cpu().numpy(),
+                "predict_clean": predict_clean_audio.cpu().numpy(),
+                "noise": noise_audio.cpu().numpy(),
+                "noisy": noisy_audio.cpu().numpy()
+            }
 
-        metrics = {'val_loss': val_loss.detach(),
-                'val_noise_loss': noise_loss.detach(),
-                'val_speech_loss': speech_loss.detach(),
-                'val_pesq': torch.tensor(pesq_av),
-                'val_stoi': torch.tensor(stoi_av)}
-
-        output = {
-            "clean": clean_audio.cpu().numpy(),
-            "predict_clean": predict_clean_audio.cpu().numpy(),
-            "noise": noise_audio.cpu().numpy(),
-            "predict_noise": predict_noise_audio.cpu().numpy(),
-            "noisy": noisy_audio.cpu().numpy()
-        }
-        if torch.any(torch.isnan(val_loss)):
+        if torch.any(torch.isnan(val_loss if sys.argv[1] == "dcs" or sys.argv[1] == "drs" else speech_loss)):
             print("found a NaN in R val loss!")
             return None
         else:
@@ -232,14 +253,21 @@ class R_NETWORK(LightningModule):
             audio.append(validation_step_outputs[i][0])
             metrics_list.append(validation_step_outputs[i][1])
 
-        avg_val_loss = torch.stack([x['val_loss'] for x in metrics_list]).mean()
-        avg_val_noise_loss = torch.stack([x['val_noise_loss'] for x in metrics_list]).mean()
+        if sys.argv[1] == "dcs" or sys.argv[1] == "drs":
+            avg_val_loss = torch.stack([x['val_loss'] for x in metrics_list]).mean()
+            avg_val_noise_loss = torch.stack([x['val_noise_loss'] for x in metrics_list]).mean()
         avg_val_speech_loss = torch.stack([x['val_speech_loss'] for x in metrics_list]).mean()
         avg_val_pesq = torch.stack([x['val_pesq'] for x in metrics_list]).mean()
         avg_val_stoi = torch.stack([x['val_stoi'] for x in metrics_list]).mean()
 
-        metrics = {'val_loss': avg_val_loss, 'val_noise_loss': avg_val_noise_loss,
-                'val_speech_loss': avg_val_speech_loss, 'val_pesq': avg_val_pesq,
+
+        if sys.argv[1] == "dcs" or sys.argv[1] == "drs":
+            metrics = {'val_loss': avg_val_loss, 'val_noise_loss': avg_val_noise_loss,
+                    'val_speech_loss': avg_val_speech_loss, 'val_pesq': avg_val_pesq,
+                    'val_stoi': avg_val_stoi, 'step': self.current_epoch}
+
+        elif sys.argv[1] == "dc" or sys.argv[1] == "dr":
+            metrics = {'val_speech_loss': avg_val_speech_loss, 'val_pesq': avg_val_pesq,
                 'val_stoi': avg_val_stoi, 'step': self.current_epoch}
 
         epoch_end(self, audio, "val")
@@ -249,24 +277,40 @@ class R_NETWORK(LightningModule):
 
 
     def test_step(self, test_batch, test_idx):
-        noise_loss, speech_loss, test_loss, pesq_av, stoi_av, \
-                predict_noise_audio, predict_clean_audio, \
-                    noise_audio, noisy_audio, clean_audio, id, start_point = \
+        if sys.argv[1] == "dcs" or sys.argv[1] == "drs":
+            noise_loss, speech_loss, test_loss, pesq_av, stoi_av, \
+                    predict_noise_audio, predict_clean_audio, \
+                        noise_audio, noisy_audio, clean_audio, id, start_point = \
+                            test_batch_2_metric_loss(self, test_batch, test_idx, dtype="real")
+            metrics = {'test_loss': test_loss.detach(),
+                    'test_noise_loss': noise_loss.detach(),
+                    'test_speech_loss': speech_loss.detach(),
+                    'test_pesq': torch.tensor(pesq_av),
+                    'test_stoi': torch.tensor(stoi_av)}
+            output = {
+                "clean": clean_audio.cpu().numpy(),
+                "predict_clean": predict_clean_audio.cpu().numpy(),
+                "noise": noise_audio.cpu().numpy(),
+                "predict_noise": predict_noise_audio.cpu().numpy(),
+                "noisy": noisy_audio.cpu().numpy()
+            }
+
+        elif sys.argv[1] == "dc" or sys.argv[1] == "dr": 
+            speech_loss, pesq_av, stoi_av, \
+                predict_clean_audio, \
+                    noise_audio,  noisy_audio,  clean_audio = \
                         test_batch_2_metric_loss(self, test_batch, test_idx, dtype="real")
+            metrics = {'test_speech_loss': speech_loss.detach(),
+                    'test_pesq': torch.tensor(pesq_av),
+                    'test_stoi': torch.tensor(stoi_av)}
+            # self.log_dict(metrics, on_epoch=True)
+            output = {
+                "clean": clean_audio.cpu().numpy(),
+                "predict_clean": predict_clean_audio.cpu().numpy(),
+                "noise": noise_audio.cpu().numpy(),
+                "noisy": noisy_audio.cpu().numpy()
+            }
 
-        metrics = {'test_loss': test_loss.detach(),
-                'test_noise_loss': noise_loss.detach(),
-                'test_speech_loss': speech_loss.detach(),
-                'test_pesq': torch.tensor(pesq_av),
-                'test_stoi': torch.tensor(stoi_av)}
-
-        output = {
-            "clean": clean_audio.cpu().numpy(),
-            "predict_clean": predict_clean_audio.cpu().numpy(),
-            "noise": noise_audio.cpu().numpy(),
-            "predict_noise": predict_noise_audio.cpu().numpy(),
-            "noisy": noisy_audio.cpu().numpy()
-        }
         return output, metrics
 
 
@@ -277,14 +321,20 @@ class R_NETWORK(LightningModule):
             audio.append(test_step_outputs[i][0])
             metrics_list.append(test_step_outputs[i][1])
 
-        avg_test_loss = torch.stack([x['test_loss'] for x in metrics_list]).mean()
-        avg_test_noise_loss = torch.stack([x['test_noise_loss'] for x in metrics_list]).mean()
+        if sys.argv[1] == "dcs" or sys.argv[1] == "drs":
+            avg_test_loss = torch.stack([x['test_loss'] for x in metrics_list]).mean()
+            avg_test_noise_loss = torch.stack([x['test_noise_loss'] for x in metrics_list]).mean()
         avg_test_speech_loss = torch.stack([x['test_speech_loss'] for x in metrics_list]).mean()
         avg_test_pesq = torch.stack([torch.tensor(x['test_pesq']) for x in metrics_list]).mean()
         avg_test_stoi = torch.stack([torch.tensor(x['test_stoi']) for x in metrics_list]).mean()
 
-        metrics = {'test_loss': avg_test_loss, 'test_noise_loss': avg_test_noise_loss,
-                'test_speech_loss': avg_test_speech_loss, 'test_pesq': avg_test_pesq,
+        if sys.argv[1] == "dcs" or sys.argv[1] == "drs":
+            metrics = {'test_loss': avg_test_loss, 'test_noise_loss': avg_test_noise_loss,
+                    'test_speech_loss': avg_test_speech_loss, 'test_pesq': avg_test_pesq,
+                    'test_stoi': avg_test_stoi, 'step': self.current_epoch}
+
+        elif sys.argv[1] == "dc" or sys.argv[1] == "dr":
+            metrics = {'test_speech_loss': avg_test_speech_loss, 'test_pesq': avg_test_pesq,
                 'test_stoi': avg_test_stoi, 'step': self.current_epoch}
 
         epoch_end(self, audio, "test")

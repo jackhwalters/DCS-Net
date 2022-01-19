@@ -29,20 +29,32 @@ if config.tune:
         hparams["lstm_bidir"] = trial.suggest_categorical("LSTM bidir", [True, False])
         hparams["noise_loss_type"] = trial.suggest_int("Noise loss option", 0, 5)
         hparams["optim_weight_decay"] = trial.suggest_int("Optim weight decay", 10e-6, 10e-5)
-        if sys.argv[1] == "real":
-            network = R_NETWORK(config, hparams, config.seed)
-            if platform == "linux":
-                tb_logger = pl_loggers.TensorBoardLogger(save_dir='/import/scratch-01/jhw31/logs/', name='DRS-Net-train')
-            elif platform == "darwin":
-                tb_logger = pl_loggers.TensorBoardLogger(save_dir='/Volumes/Work/Project/Logs', name='DRS-Net-train')
-        elif sys.argv[1] == "complex":
+        if sys.argv[1] == "dcs":
             network = C_NETWORK(config, hparams, config.seed)
             if platform == "linux":
                 tb_logger = pl_loggers.TensorBoardLogger(save_dir='/import/scratch-01/jhw31/logs/', name='DCS-Net-train')
             elif platform == "darwin":
                 tb_logger = pl_loggers.TensorBoardLogger(save_dir='/Volumes/Work/Project/Logs', name='DCS-Net-train')
+        elif sys.argv[1] == "drs":
+            network = R_NETWORK(config, hparams, config.seed)
+            if platform == "linux":
+                tb_logger = pl_loggers.TensorBoardLogger(save_dir='/import/scratch-01/jhw31/logs/', name='DRS-Net-train')
+            elif platform == "darwin":
+                tb_logger = pl_loggers.TensorBoardLogger(save_dir='/Volumes/Work/Project/Logs', name='DRS-Net-train')
+        elif sys.argv[1] == "dc":
+            network = R_NETWORK(config, hparams, config.seed)
+            if platform == "linux":
+                tb_logger = pl_loggers.TensorBoardLogger(save_dir='/import/scratch-01/jhw31/logs/', name='DC-Net-train')
+            elif platform == "darwin":
+                tb_logger = pl_loggers.TensorBoardLogger(save_dir='/Volumes/Work/Project/Logs', name='DC-Net-train')
+        elif sys.argv[1] == "dr":
+            network = R_NETWORK(config, hparams, config.seed)
+            if platform == "linux":
+                tb_logger = pl_loggers.TensorBoardLogger(save_dir='/import/scratch-01/jhw31/logs/', name='DR-Net-train')
+            elif platform == "darwin":
+                tb_logger = pl_loggers.TensorBoardLogger(save_dir='/Volumes/Work/Project/Logs', name='DR-Net-train')
         else:
-            print("Please pass either real or complex as an argument to train the desired network")
+            print("Please pass either 'drs', 'dcs', 'dr', or 'dc' as an argument to train the desired network")
 
         trainer = Trainer(
                 # gpus=config.num_gpus if sys.argv[1] == "real" else 1,
@@ -63,10 +75,18 @@ if config.tune:
         return trainer.callback_metrics["val_pesq"]
 
     if __name__ == "__main__":
+        if sys.argv[1] == "dcs":
+            study_name = "dcs-net_study"
+        elif sys.argv[1] == "drs":
+            study_name = "drs-net_study"
+        elif sys.argv[1] == "dc":
+            study_name = "dc-net_study"
+        elif sys.argv[1] == "dr":
+            study_name = "dr-net_study"
         pruner = optuna.pruners.MedianPruner()
         study = optuna.create_study(direction="maximize",
                             pruner=pruner,
-                            study_name="real_study" if sys.argv[1] == "real" else "complex_study")
+                            study_name=study_name)
         study.optimize(objective,
                 n_trials=100,
                 timeout=6000,
@@ -81,20 +101,32 @@ if config.tune:
             print("    {}: {}".format(key, value))
 
 elif not config.tune:
-    if sys.argv[1] == "real":
-        network = R_NETWORK(config, hparams, config.seed)
-        if platform == "linux":
-            tb_logger = pl_loggers.TensorBoardLogger(save_dir='/import/scratch-01/jhw31/logs/', name='DRS-Net-train')
-        elif platform == "darwin":
-            tb_logger = pl_loggers.TensorBoardLogger(save_dir='/Volumes/Work/Project/Logs', name='DRS-Net-train')
-    elif sys.argv[1] == "complex":
+    if sys.argv[1] == "dcs":
         network = C_NETWORK(config, hparams, config.seed)
         if platform == "linux":
             tb_logger = pl_loggers.TensorBoardLogger(save_dir='/import/scratch-01/jhw31/logs/', name='DCS-Net-train')
         elif platform == "darwin":
             tb_logger = pl_loggers.TensorBoardLogger(save_dir='/Volumes/Work/Project/Logs', name='DCS-Net-train')
+    elif sys.argv[1] == "drs":
+        network = R_NETWORK(config, hparams, config.seed)
+        if platform == "linux":
+            tb_logger = pl_loggers.TensorBoardLogger(save_dir='/import/scratch-01/jhw31/logs/', name='DRS-Net-train')
+        elif platform == "darwin":
+            tb_logger = pl_loggers.TensorBoardLogger(save_dir='/Volumes/Work/Project/Logs', name='DRS-Net-train')
+    elif sys.argv[1] == "dc":
+        network = C_NETWORK(config, hparams, config.seed)
+        if platform == "linux":
+            tb_logger = pl_loggers.TensorBoardLogger(save_dir='/import/scratch-01/jhw31/logs/', name='DC-Net-train')
+        elif platform == "darwin":
+            tb_logger = pl_loggers.TensorBoardLogger(save_dir='/Volumes/Work/Project/Logs', name='DC-Net-train')
+    elif sys.argv[1] == "dr":
+        network = R_NETWORK(config, hparams, config.seed)
+        if platform == "linux":
+            tb_logger = pl_loggers.TensorBoardLogger(save_dir='/import/scratch-01/jhw31/logs/', name='DR-Net-train')
+        elif platform == "darwin":
+            tb_logger = pl_loggers.TensorBoardLogger(save_dir='/Volumes/Work/Project/Logs', name='DR-Net-train')
     else:
-        print("Please pass either real or complex as an argument to train the desired network")
+        print("Please pass either 'drs', 'dcs', 'dr', or 'dc' as an argument to train the desired network")
 
     # callback options: CheckBatchGradient(), InputMonitor() 
     trainer = Trainer(
