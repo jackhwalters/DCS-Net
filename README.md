@@ -2,51 +2,28 @@
 
 This is the implementation of "DCS-Net: Deep Complex Subtractive Neural Network for Monaural Speech Enhancement"
 
-## Steps to run the model
+### Setup
 
-1. Edit VOICEBANK_ROOT in config.py to where your copy of the [dataset](https://datashare.ed.ac.uk/handle/10283/1942?show=full) is
+1. Edit VOICEBANK_ROOT in config.py to be the root of the [dataset](https://datashare.ed.ac.uk/handle/10283/2791)
 
-2. Tune hyperparameters in config.py
-
-3. Install the relevant modules
+2. Install the dependencies
 ```
 $ pip install -r requirements.txt
 ```
 
-4. To run DCS-Net:
+3. Adjust hyperparameters in config.py
+
+
+### Training
+{DCS-Net: dcs, DRS-Net: drs, DC-Net: dc, DR-Net: dr}
 ```
-$ python train.py complex
+$ python train.py [NETWORK]
 ```
 
-5. To run DRS-Net:
+### Testing
+{DCS-Net: dcs, DRS-Net: drs, DC-Net: dc, DR-Net: dr}
 ```
-$ python train.py real
-```
-
-6. To test DCS-Net:
-```
-$ python test.py complex
+$ python test.py [NETWORK]
 ```
 
-7. To test DRS-Net:
-```
-$ python test.py real
-```
-
-Example output files are available in output_files/
-
-## Testing DC-Net or DR-Net
-In order to test either DC-Net or DR-Net, switch to the speechest branch
-
-## File list
-data_json/ \
-output_files/ \
-c_network.py \
-config.py \
-network_functions.py \
-r_network.py \
-README.md \
-requirements.txt \
-side_tests.py \
-test.py \
-train.py
+Example output files are available in /output_files/
