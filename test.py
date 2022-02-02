@@ -5,9 +5,8 @@ from data import VoiceBankDataset, preprocess
 from pytorch_lightning import Trainer, loggers as pl_loggers
 from torch.utils.data import DataLoader
 from torch import cuda
-from config import Config, hparams
+from config import config, hparams
 
-config = Config()
 config.data_params['batch_size'] = 1
 
 partition = preprocess(config)

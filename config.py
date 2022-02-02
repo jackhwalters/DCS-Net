@@ -28,16 +28,15 @@ MATLAB_ROOT = "../MATLAB/"
 # speech_loss_type
 # 0 SiSNR
 hparams = {'lr': 10e-6,
-            'initialisation_distribution': nn.init.kaiming_uniform_,
+            'initialisation_distribution': nn.init.xavier_uniform_,
             'noise_alpha': 1,
-            'speech_alpha': 0.25,
+            'speech_alpha': 1,
             'no_of_layers': 7,
             'channels': [1, 16, 32, 64, 128, 256, 256, 256],
             'lstm_layers': 2,
             'lstm_bidir': True,
-            'noise_loss_type': 4,
+            'noise_loss_type': 6,
             'speech_loss_type': 0,
-            'skip_concat': True,
             'dropout': True,
             'dropout_conv': 0.1,
             'dropout_fc': 0.2,
@@ -56,7 +55,7 @@ hparams = {'lr': 10e-6,
 class Config(object):
     def __init__(self):
         self.tune = False
-        self.load_data_into_RAM = False
+        self.load_data_into_RAM = True
         self.sr = 16000
         self.file_sr = 48000
         self.resample = torchaudio.transforms.Resample(orig_freq=self.file_sr, new_freq=self.sr)
@@ -113,7 +112,4 @@ class Config(object):
 
         self.val_log_sample_size = 1
         self.seed = 0
-        self.data_minC = -113.9526
-        self.data_maxC = 108.5362
-        self.data_minR = 0
-        self.data_maxR = 114.0936
+config = Config()

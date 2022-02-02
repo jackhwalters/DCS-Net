@@ -190,7 +190,10 @@ def calc_loss(self, **kwargs):
             else:
                 noise_loss_orig = self.config.wSDR(kwargs['noisy_audio'], kwargs['noise_audio'], kwargs['predict_noise_audio']) + \
                     self.config.mse(kwargs['target_noise_mask'], kwargs['predict_noise_mask'])
+        elif self.hparams['noise_loss_type'] == 6:
+            noise_loss_orig = -self.config.SiSNR(kwargs['noise_audio'], kwargs['predict_noise_audio'])
         noise_loss = (self.hparams['noise_alpha'] * noise_loss_orig)
+
 
     if self.hparams['speech_loss_type'] == 0:
         speech_loss_orig = -self.config.SiSNR(kwargs['clean_audio'], kwargs['predict_clean_audio'])
@@ -220,8 +223,7 @@ def train_batch_2_loss(self, train_batch, batch_idx, dtype):
         if dtype == "real":
             target_noise_mask = torch.sigmoid(noise_mag / noisy_mag)
 
-            noisy_mag_scaled = (noisy_mag - self.config.data_minR) / (self.config.data_maxR - self.config.data_minR)
-            predict_noise_mask = self(noisy_mag_scaled)
+            predict_noise_mask = self(noisy_mag)
 
             predict_noise_mag = noisy_mag * predict_noise_mask
             predict_clean_mag = noisy_mag - predict_noise_mag
@@ -233,9 +235,7 @@ def train_batch_2_loss(self, train_batch, batch_idx, dtype):
             target_noise_mask = bound_cRM(target_noise_mask_out, self.hparams)
 
             # noisy_data_standardised = (noisy_data - torch.mean(noisy_data)) / torch.std(noisy_data)
-            noisy_data_scaled = torch.view_as_complex((2 * ((torch.view_as_real(noisy_data) - self.config.data_minC) /
-                        (self.config.data_maxC - self.config.data_minC))) - 1)
-            predict_noise_mask_out = self(noisy_data_scaled)
+            predict_noise_mask_out = self(noisy_data)
             predict_noise_mask = bound_cRM(predict_noise_mask_out, self.hparams)
 
             predict_noise_data = complex_mat_mult(noisy_data, predict_noise_mask)
@@ -260,17 +260,14 @@ def train_batch_2_loss(self, train_batch, batch_idx, dtype):
         if dtype == "real":
             target_clean_mask = torch.sigmoid(noise_mag / noisy_mag)
 
-            noisy_mag_scaled = (noisy_mag - self.config.data_minR) / (self.config.data_maxR - self.config.data_minR)
-            predict_noise_mask = self(noisy_mag_scaled)
+            predict_noise_mask = self(noisy_mag)
 
             predict_clean_mag = noisy_mag * predict_noise_mask
             predict_clean_audio = mag_phase_2_wave(predict_clean_mag, noisy_phase, self.config)
         
         elif dtype == "complex":
             # noisy_data_standardised = (noisy_data - torch.mean(noisy_data)) / torch.std(noisy_data)
-            noisy_data_scaled = torch.view_as_complex((2 * ((torch.view_as_real(noisy_data) - self.config.data_minC) /
-                        (self.config.data_maxC - self.config.data_minC))) - 1)
-            predict_clean_mask_out = self(noisy_data_scaled)
+            predict_clean_mask_out = self(noisy_data)
             predict_clean_mask = bound_cRM(predict_clean_mask_out, self.hparams)
 
             predict_clean_data = complex_mat_mult(noisy_data, predict_clean_mask)
@@ -298,8 +295,7 @@ def val_batch_2_metric_loss(self, val_batch, val_idx, dtype):
         if dtype == "real":
             target_noise_mask = torch.sigmoid(noise_mag / noisy_mag)
 
-            noisy_mag_scaled = (noisy_mag - self.config.data_minR) / (self.config.data_maxR - self.config.data_minR)
-            predict_noise_mask = self(noisy_mag_scaled)
+            predict_noise_mask = self(noisy_mag)
             
             predict_noise_mag = noisy_mag * predict_noise_mask
             predict_clean_mag = noisy_mag - predict_noise_mag
@@ -312,9 +308,7 @@ def val_batch_2_metric_loss(self, val_batch, val_idx, dtype):
             target_noise_mask = bound_cRM(target_noise_mask_out, self.hparams)
 
             # noisy_data_standardised = (noisy_data - torch.mean(noisy_data)) / torch.std(noisy_data)
-            noisy_data_scaled = torch.view_as_complex((2 * ((torch.view_as_real(noisy_data) - self.config.data_minC) /
-                        (self.config.data_maxC - self.config.data_minC))) - 1)
-            predict_noise_mask_out = self(noisy_data_scaled)
+            predict_noise_mask_out = self(noisy_data)
             predict_noise_mask = bound_cRM(predict_noise_mask_out, self.hparams)
 
             predict_noise_data = complex_mat_mult(noisy_data, predict_noise_mask)
@@ -342,17 +336,14 @@ def val_batch_2_metric_loss(self, val_batch, val_idx, dtype):
 
     elif sys.argv[1] == "dc" or sys.argv[1] == "dr":
         if dtype == "real":
-            noisy_mag_scaled = (noisy_mag - self.config.data_minR) / (self.config.data_maxR - self.config.data_minR)
-            predict_noise_mask = self(noisy_mag_scaled)
+            predict_noise_mask = self(noisy_mag)
 
             predict_clean_mag = noisy_mag * predict_noise_mask
             predict_clean_audio = mag_phase_2_wave(predict_clean_mag, noisy_phase, self.config)
 
         elif dtype == "complex":
             # noisy_data_standardised = (noisy_data - torch.mean(noisy_data)) / torch.std(noisy_data)
-            noisy_data_scaled = torch.view_as_complex((2 * ((torch.view_as_real(noisy_data) - self.config.data_minC) /
-                        (self.config.data_maxC - self.config.data_minC))) - 1)
-            predict_clean_mask_out = self(noisy_data_scaled)
+            predict_clean_mask_out = self(noisy_data)
             predict_clean_mask = bound_cRM(predict_clean_mask_out, self.hparams)
 
             predict_clean_data = complex_mat_mult(noisy_data, predict_clean_mask)
@@ -385,8 +376,7 @@ def test_batch_2_metric_loss(self, test_batch, test_idx, dtype):
         if dtype == "real":
             target_noise_mask = torch.sigmoid(noise_mag / noisy_mag)
 
-            noisy_mag_scaled = (noisy_mag - self.config.data_minR) / (self.config.data_maxR - self.config.data_minR)
-            predict_noise_mask = self(noisy_mag_scaled)
+            predict_noise_mask = self(noisy_mag)
 
             predict_noise_mag = noisy_mag * predict_noise_mask
             predict_clean_mag = noisy_mag - predict_noise_mag
@@ -399,9 +389,7 @@ def test_batch_2_metric_loss(self, test_batch, test_idx, dtype):
             target_noise_mask = bound_cRM(target_noise_mask_out, self.hparams)
 
             # noisy_data_standardised = (noisy_data - torch.mean(noisy_data)) / torch.std(noisy_data)
-            noisy_data_scaled = torch.view_as_complex((2 * ((torch.view_as_real(noisy_data) - self.config.data_minC) /
-                        (self.config.data_maxC - self.config.data_minC))) - 1) 
-            predict_noise_mask_out = self(noisy_data_scaled)
+            predict_noise_mask_out = self(noisy_data)
             predict_noise_mask = bound_cRM(predict_noise_mask_out, self.hparams)
 
             predict_noise_data = complex_mat_mult(noisy_data, predict_noise_mask)
@@ -432,17 +420,14 @@ def test_batch_2_metric_loss(self, test_batch, test_idx, dtype):
 
     elif sys.argv[1] == "dc" or sys.argv[1] == "dr":
         if dtype == "real":
-            noisy_mag_scaled = (noisy_mag - self.config.data_minR) / (self.config.data_maxR - self.config.data_minR)
-            predict_noise_mask = self(noisy_mag_scaled)
+            predict_noise_mask = self(noisy_mag)
 
             predict_clean_mag = noisy_mag * predict_noise_mask
             predict_clean_audio = mag_phase_2_wave(predict_clean_mag, noisy_phase, self.config)
 
         elif dtype == "complex":
             # noisy_data_standardised = (noisy_data - torch.mean(noisy_data)) / torch.std(noisy_data)
-            noisy_data_scaled = torch.view_as_complex((2 * ((torch.view_as_real(noisy_data) - self.config.data_minC) /
-                        (self.config.data_maxC - self.config.data_minC))) - 1)
-            predict_clean_mask_out = self(noisy_data_scaled)
+            predict_clean_mask_out = self(noisy_data)
             predict_clean_mask = bound_cRM(predict_clean_mask_out, self.hparams)
 
             predict_clean_data = complex_mat_mult(noisy_data, predict_clean_mask)

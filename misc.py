@@ -1,5 +1,6 @@
 import torch
 import matplotlib.pyplot as plt
+import seaborn as sns
 import torchaudio
 import math
 import norbert
@@ -12,14 +13,13 @@ elif platform == "darwin":
     from pesq import pesq
 from pystoi import stoi
 from torchaudio.backend.sox_io_backend import load
-from config import VOICEBANK_ROOT, VOICEBANK_ROOT, OUTPUT_FILES, MATLAB_ROOT, Config, hparams
+from config import VOICEBANK_ROOT, VOICEBANK_ROOT, OUTPUT_FILES, MATLAB_ROOT, config, hparams
 from network_functions import *
 from complexPyTorch.complexFunctions import complex_matmul
 from data import *
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-config = Config()
 partition = preprocess(config)
 
 # torch.cuda.empty_cache()
@@ -553,123 +553,168 @@ RESHAPING = 0
 
 MIN_AND_MAX_OF_DATASET = 0
 
-maximum = 0
-minimum = 0
-for step, ID in enumerate(tqdm(partition["train"])):
-        clean_data, _ = load(VOICEBANK_ROOT + "clean_trainset_{}spk_wav/".format(hparams['dataset_type']) \
-                         + ID + ".wav", normalize=config.normalise_audio)
-        noisy_data, _ = load(VOICEBANK_ROOT + "noisy_trainset_{}spk_wav/".format(hparams['dataset_type']) \
-                        + ID + ".wav", normalize=config.normalise_audio)
-        clean_data = torch.squeeze(clean_data).float()
-        noisy_data = torch.squeeze(noisy_data).float()
-        noise_data = noisy_data - clean_data
+# maximum = 0
+# minimum = 0
+# for step, ID in enumerate(tqdm(partition["train"])):
+#         clean_data, _ = load(VOICEBANK_ROOT + "clean_trainset_{}spk_wav/".format(hparams['dataset_type']) \
+#                          + ID + ".wav", normalize=config.normalise_audio)
+#         noisy_data, _ = load(VOICEBANK_ROOT + "noisy_trainset_{}spk_wav/".format(hparams['dataset_type']) \
+#                         + ID + ".wav", normalize=config.normalise_audio)
+#         clean_data = torch.squeeze(clean_data).float()
+#         noisy_data = torch.squeeze(noisy_data).float()
+#         noise_data = noisy_data - clean_data
 
-        noise_data = torch.stft(noise_data,
-                n_fft=config.fft_size,
-                hop_length=config.hop_length,
-                win_length=config.window_length,
-                window=config.window,
-                return_complex=True,
-                normalized=config.normalise_stft)[1:int(config.fft_size / 2) + 1, :]
+#         noise_data = torch.stft(noise_data,
+#                 n_fft=config.fft_size,
+#                 hop_length=config.hop_length,
+#                 win_length=config.window_length,
+#                 window=config.window,
+#                 return_complex=True,
+#                 normalized=config.normalise_stft)[1:int(config.fft_size / 2) + 1, :]
                                                             
-        noisy_data = torch.stft(noisy_data,
-                n_fft=config.fft_size,
-                hop_length=config.hop_length,
-                win_length=config.window_length,
-                window=config.window,
-                return_complex=True,
-                normalized=config.normalise_stft)[1:int(config.fft_size / 2) + 1, :]
+#         noisy_data = torch.stft(noisy_data,
+#                 n_fft=config.fft_size,
+#                 hop_length=config.hop_length,
+#                 win_length=config.window_length,
+#                 window=config.window,
+#                 return_complex=True,
+#                 normalized=config.normalise_stft)[1:int(config.fft_size / 2) + 1, :]
 
-        clean_data = torch.stft(clean_data,
-                n_fft=config.fft_size,
-                hop_length=config.hop_length,
-                win_length=config.window_length,
-                window=config.window,
-                return_complex=True,
-                normalized=config.normalise_stft)[1:int(config.fft_size / 2) + 1, :]
+#         clean_data = torch.stft(clean_data,
+#                 n_fft=config.fft_size,
+#                 hop_length=config.hop_length,
+#                 win_length=config.window_length,
+#                 window=config.window,
+#                 return_complex=True,
+#                 normalized=config.normalise_stft)[1:int(config.fft_size / 2) + 1, :]
 
-        # noise_max = torch.max(torch.view_as_real(noise_data))
-        # noisy_max = torch.max(torch.view_as_real(noisy_data))
-        # clean_max = torch.max(torch.view_as_real(clean_data))
+#         # noise_max = torch.max(torch.view_as_real(noise_data))
+#         # noisy_max = torch.max(torch.view_as_real(noisy_data))
+#         # clean_max = torch.max(torch.view_as_real(clean_data))
 
-        # noise_min = torch.min(torch.view_as_real(noise_data))
-        # noisy_min = torch.min(torch.view_as_real(noisy_data))
-        # clean_min = torch.min(torch.view_as_real(clean_data))
+#         # noise_min = torch.min(torch.view_as_real(noise_data))
+#         # noisy_min = torch.min(torch.view_as_real(noisy_data))
+#         # clean_min = torch.min(torch.view_as_real(clean_data))
 
-        noise_max = torch.max(torch.abs(noise_data))
-        noisy_max = torch.max(torch.abs(noisy_data))
-        clean_max = torch.max(torch.abs(clean_data))
+#         noise_max = torch.max(torch.abs(noise_data))
+#         noisy_max = torch.max(torch.abs(noisy_data))
+#         clean_max = torch.max(torch.abs(clean_data))
 
-        noise_min = torch.min(torch.abs(noise_data))
-        noisy_min = torch.min(torch.abs(noisy_data))
-        clean_min = torch.min(torch.abs(clean_data))
+#         noise_min = torch.min(torch.abs(noise_data))
+#         noisy_min = torch.min(torch.abs(noisy_data))
+#         clean_min = torch.min(torch.abs(clean_data))
 
-        max_max = max(noise_max, noisy_max, clean_max)
-        min_min = min(noise_min, noisy_min, clean_min)
+#         max_max = max(noise_max, noisy_max, clean_max)
+#         min_min = min(noise_min, noisy_min, clean_min)
 
-        if max_max > maximum:
-                maximum = max_max
+#         if max_max > maximum:
+#                 maximum = max_max
 
-        if min_min < minimum:
-                minimum = min_min
+#         if min_min < minimum:
+#                 minimum = min_min
 
-for step, ID in enumerate(tqdm(partition["val"])):
-        clean_data, _ = load(VOICEBANK_ROOT + "clean_trainset_{}spk_wav/".format(hparams['dataset_type']) \
-                         + ID + ".wav", normalize=config.normalise_audio)
-        noisy_data, _ = load(VOICEBANK_ROOT + "noisy_trainset_{}spk_wav/".format(hparams['dataset_type']) \
-                        + ID + ".wav", normalize=config.normalise_audio)
-        clean_data = torch.squeeze(clean_data).float()
-        noisy_data = torch.squeeze(noisy_data).float()
-        noise_data = noisy_data - clean_data
+# for step, ID in enumerate(tqdm(partition["val"])):
+#         clean_data, _ = load(VOICEBANK_ROOT + "clean_trainset_{}spk_wav/".format(hparams['dataset_type']) \
+#                          + ID + ".wav", normalize=config.normalise_audio)
+#         noisy_data, _ = load(VOICEBANK_ROOT + "noisy_trainset_{}spk_wav/".format(hparams['dataset_type']) \
+#                         + ID + ".wav", normalize=config.normalise_audio)
+#         clean_data = torch.squeeze(clean_data).float()
+#         noisy_data = torch.squeeze(noisy_data).float()
+#         noise_data = noisy_data - clean_data
 
-        noise_data = torch.stft(noise_data,
-                n_fft=config.fft_size,
-                hop_length=config.hop_length,
-                win_length=config.window_length,
-                window=config.window,
-                return_complex=True,
-                normalized=config.normalise_stft)[1:int(config.fft_size / 2) + 1, :]
+#         noise_data = torch.stft(noise_data,
+#                 n_fft=config.fft_size,
+#                 hop_length=config.hop_length,
+#                 win_length=config.window_length,
+#                 window=config.window,
+#                 return_complex=True,
+#                 normalized=config.normalise_stft)[1:int(config.fft_size / 2) + 1, :]
                                                             
-        noisy_data = torch.stft(noisy_data,
-                n_fft=config.fft_size,
-                hop_length=config.hop_length,
-                win_length=config.window_length,
-                window=config.window,
-                return_complex=True,
-                normalized=config.normalise_stft)[1:int(config.fft_size / 2) + 1, :]
+#         noisy_data = torch.stft(noisy_data,
+#                 n_fft=config.fft_size,
+#                 hop_length=config.hop_length,
+#                 win_length=config.window_length,
+#                 window=config.window,
+#                 return_complex=True,
+#                 normalized=config.normalise_stft)[1:int(config.fft_size / 2) + 1, :]
 
-        clean_data = torch.stft(clean_data,
-                n_fft=config.fft_size,
-                hop_length=config.hop_length,
-                win_length=config.window_length,
-                window=config.window,
-                return_complex=True,
-                normalized=config.normalise_stft)[1:int(config.fft_size / 2) + 1, :]
+#         clean_data = torch.stft(clean_data,
+#                 n_fft=config.fft_size,
+#                 hop_length=config.hop_length,
+#                 win_length=config.window_length,
+#                 window=config.window,
+#                 return_complex=True,
+#                 normalized=config.normalise_stft)[1:int(config.fft_size / 2) + 1, :]
 
-        # noise_max = torch.max(torch.view_as_real(noise_data))
-        # noisy_max = torch.max(torch.view_as_real(noisy_data))
-        # clean_max = torch.max(torch.view_as_real(clean_data))
+#         # noise_max = torch.max(torch.view_as_real(noise_data))
+#         # noisy_max = torch.max(torch.view_as_real(noisy_data))
+#         # clean_max = torch.max(torch.view_as_real(clean_data))
 
-        # noise_min = torch.min(torch.view_as_real(noise_data))
-        # noisy_min = torch.min(torch.view_as_real(noisy_data))
-        # clean_min = torch.min(torch.view_as_real(clean_data))
+#         # noise_min = torch.min(torch.view_as_real(noise_data))
+#         # noisy_min = torch.min(torch.view_as_real(noisy_data))
+#         # clean_min = torch.min(torch.view_as_real(clean_data))
 
-        noise_max = torch.max(torch.abs(noise_data))
-        noisy_max = torch.max(torch.abs(noisy_data))
-        clean_max = torch.max(torch.abs(clean_data))
+#         noise_max = torch.max(torch.abs(noise_data))
+#         noisy_max = torch.max(torch.abs(noisy_data))
+#         clean_max = torch.max(torch.abs(clean_data))
 
-        noise_min = torch.min(torch.abs(noise_data))
-        noisy_min = torch.min(torch.abs(noisy_data))
-        clean_min = torch.min(torch.abs(clean_data))
+#         noise_min = torch.min(torch.abs(noise_data))
+#         noisy_min = torch.min(torch.abs(noisy_data))
+#         clean_min = torch.min(torch.abs(clean_data))
 
-        max_max = max(noise_max, noisy_max, clean_max)
-        min_min = min(noise_min, noisy_min, clean_min)
+#         max_max = max(noise_max, noisy_max, clean_max)
+#         min_min = min(noise_min, noisy_min, clean_min)
 
-        if max_max > maximum:
-                maximum = max_max
+#         if max_max > maximum:
+#                 maximum = max_max
 
-        if min_min < minimum:
-                minimum = min_min
+#         if min_min < minimum:
+#                 minimum = min_min
 
-print("max: ", maximum)
-print("min: ", minimum)
+# print("max: ", maximum)
+# print("min: ", minimum)
+
+
+NOISE_DISTRIBUTIONS = 0
+# CREATING FILES
+
+# gaussian_integer_win_size = torch.normal(0, 1, size=[1, config.integer_win_size])
+# print(gaussian_integer_win_size)
+# print("torch.min(gaussian_integer_win_size): ", torch.min(gaussian_integer_win_size))
+# print("torch.max(gaussian_integer_win_size): ", torch.max(gaussian_integer_win_size))
+
+clean_audio, clean_sr = load(VOICEBANK_ROOT + "clean_trainset_28spk_wav/" + "p226_001.wav", normalize=True)
+clean_audio = torch.squeeze(clean_audio)
+print("clean_sr: ", clean_sr)
+print("torch.min(clean_audio): ", torch.min(clean_audio))
+print("torch.max(clean_audio): ", torch.max(clean_audio))
+
+# noisy_audio, noisy_sr = load(VOICEBANK_ROOT + "noisy_trainset_28spk_wav/" + "p226_001.wav", normalize=True)
+# noisy_audio = torch.squeeze(noisy_audio)
+# print("noisy_sr: ", noisy_sr)
+# print("torch.min(noisy_audio): ", torch.min(noisy_audio))
+# print("torch.max(noisy_audio): ", torch.max(noisy_audio))
+
+gaussian_audio = torch.normal(0, 1, size=[1, clean_audio.shape[0]])
+gaussian_audio_scaled = (((gaussian_audio - torch.min(gaussian_audio)) \
+    * (torch.max(clean_audio) - torch.min(clean_audio))) / (torch.max(gaussian_audio) - torch.min(gaussian_audio))) \
+    + torch.min(clean_audio)
+
+print("torch.min(gaussian_audio_scaled): ", torch.min(gaussian_audio_scaled))
+print("torch.max(gaussian_audio_scaled): ", torch.max(gaussian_audio_scaled))
+
+clean_gaussian = clean_audio + gaussian_audio_scaled
+
+write(OUTPUT_FILES + "clean_gaussian.wav", clean_sr, clean_gaussian[0].cpu().numpy())
+
+# FFT'ing
+
+gaussian_stft = torch.stft(gaussian_audio_scaled, n_fft=config.fft_size, hop_length=config.hop_length, \
+        win_length=config.window_length, window=config.window, return_complex=True, \
+        normalized=config.normalise_stft)
+
+sns_plot = sns.scatterplot(data=torch.view_as_real(torch.squeeze(gaussian_stft))[0].cpu().numpy())
+fig = sns_plot.get_figure()
+fig.savefig(OUTPUT_FILES + "sns_plot.png")
+
+# plt.savefig(OUTPUT_FILES + "sns_plot.png")

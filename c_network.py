@@ -98,6 +98,7 @@ class C_NETWORK(LightningModule):
         self.skip_attention = torch.nn.ModuleList()
 
         # Encoder
+        self.initial_batchnorm = ComplexBatchNorm2d(max(self.hparams['channels'][0] // 2, 1))
         for i in range(self.hparams['no_of_layers']):
             if i == 0:
                 in_channels = 1
@@ -174,19 +175,20 @@ class C_NETWORK(LightningModule):
         for m in self.modules():
             if isinstance(m, torch.nn.Conv2d):
                 self.hparams['initialisation_distribution'](m.weight)
-                print("Initialised Conv2d")
+                # print("Initialised Conv2d")
             elif isinstance(m, torch.nn.ConvTranspose2d):
                 self.hparams['initialisation_distribution'](m.weight)
-                print("Initialised ConvTranspose2d")
+                # print("Initialised ConvTranspose2d")
             elif isinstance(m, torch.nn.Linear):
                 self.hparams['initialisation_distribution'](m.weight)
-                print("Initialised Linear")
+                # print("Initialised Linear")
 
 
     def forward(self, x):
         enc_out = []
 
-        enc_out.append(x.view(x.shape[0], -1, x.shape[1], x.shape[2]))
+        e = self.initial_batchnorm(x.view(x.shape[0], -1, x.shape[1], x.shape[2]))
+        enc_out.append(e)
         
         for i in range(self.hparams['no_of_layers']):
             e = self.encoder[i](enc_out[i])

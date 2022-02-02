@@ -2,15 +2,13 @@ import sys
 import optuna
 from optuna.integration import PyTorchLightningPruningCallback
 from torch.utils.data import DataLoader
-from torch import cuda
+from torch import cuda, nn
 from pytorch_lightning import Trainer, loggers as pl_loggers
 from data import VoiceBankDataset, preprocess
 from r_network import *
 from c_network import *
-from config import Config, hparams
+from config import config, hparams
 from network_functions import InputMonitor, CheckBatchGradient
-
-config = Config()
 
 partition = preprocess(config)
 
@@ -23,12 +21,17 @@ validation_loader = DataLoader(validation_set, **config.data_params)
 if config.tune:
     def objective(trial: optuna.trial.Trial):
         hparams["lr"] = trial.suggest_float("Learning rate", 10e-6, 10e-4)
+        hparams["initialisation_distribution"] = trial.suggest_categorical("Initialisation distribution",
+            [nn.init.kaiming_uniform_, nn.init.xavier_uniform_])
         hparams["noise_alpha"] = trial.suggest_float("Noise alpha", 0, 1)
         hparams["speech_alpha"] = trial.suggest_float("Speech alpha", 0, 1)
         hparams["lstm_layers"] = trial.suggest_int("LSTM layers", 1, 12)
-        hparams["lstm_bidir"] = trial.suggest_categorical("LSTM bidir", [True, False])
+        # hparams["lstm_bidir"] = trial.suggest_categorical("LSTM bidir", [True, False])
         hparams["noise_loss_type"] = trial.suggest_int("Noise loss option", 0, 5)
-        hparams["optim_weight_decay"] = trial.suggest_int("Optim weight decay", 10e-6, 10e-5)
+        hparams["dropout_conv"] = trial.suggest_float("Convolutional dropout probability", 0.01, 0.99)
+        hparams["dropout_fc"] = trial.suggest_float("Fully connected dropout probability", 0.01, 0.99)
+        # hparams["batch_size"] = trial.suggest_categorical("Batch size", [16, 32, 64, 128])
+        hparams["optim_weight_decay"] = trial.suggest_int("Optim weight decay", 10e-6, 10e-4)
         if sys.argv[1] == "dcs":
             network = C_NETWORK(config, hparams, config.seed)
             if platform == "linux":
@@ -130,7 +133,7 @@ elif not config.tune:
 
     # callback options: CheckBatchGradient(), InputMonitor() 
     trainer = Trainer(
-            gpus=[0],
+            gpus=[1],
             accelerator = None,
             max_epochs=config.max_epochs,
             logger=tb_logger,
