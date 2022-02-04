@@ -1,5 +1,6 @@
 /logs
 /venv
+/output_files/
 /.vim
 /__pycache__
 *.json
