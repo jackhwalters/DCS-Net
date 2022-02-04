@@ -77,10 +77,10 @@ def cRM(S, Y, eps=1e-8):
 def bound_cRM(cRM, hparams):
     target_noise_mask_mag = torch.abs(cRM)
     target_noise_mask_mag_tanh = torch.tanh(target_noise_mask_mag)
-    target_noise_mag_tanh_real = target_noise_mask_mag_tanh * torch.cos(torch.angle(cRM))
-    target_noise_mag_tanh_imag = target_noise_mask_mag_tanh * torch.sin(torch.angle(cRM))
+    target_noise_mag_tanh_real = target_noise_mask_mag_tanh * torch.cos(torch.atan2(cRM.imag, cRM.real + hparams['atan2_eps']))
+    target_noise_mag_tanh_imag = target_noise_mask_mag_tanh * torch.sin(torch.atan2(cRM.imag, cRM.real + hparams['atan2_eps']))
     target_noise_mask_phase = torch.atan2(target_noise_mag_tanh_imag, \
-        target_noise_mag_tanh_real + hparams['bound_crm_eps'])
+        target_noise_mag_tanh_real + hparams['atan2_eps'])
 
     target_noise_mask_real = target_noise_mask_mag_tanh * torch.cos(target_noise_mask_phase)
     target_noise_mask_imag = target_noise_mask_mag_tanh * torch.sin(target_noise_mask_phase)
@@ -210,11 +210,11 @@ def train_batch_2_loss(self, train_batch, batch_idx, dtype):
     noise_data, noisy_data, clean_data, id = train_batch
 
     noise_mag = torch.abs(noise_data)
-    noise_phase = torch.angle(noise_data)
+    noise_phase = torch.atan2(noise_data.imag, noise_data.real + self.hparams['atan2_eps'])
     noisy_mag = torch.abs(noisy_data)
-    noisy_phase = torch.angle(noisy_data)
+    noisy_phase = torch.atan2(noisy_data.imag, noisy_data.real + self.hparams['atan2_eps'])
     clean_mag = torch.abs(clean_data)
-    clean_phase = torch.angle(clean_data)
+    clean_phase = torch.atan2(clean_data.imag, clean_data.real + self.hparams['atan2_eps'])
     noise_audio = mag_phase_2_wave(noise_mag, noise_phase, self.config)
     noisy_audio = mag_phase_2_wave(noisy_mag, noisy_phase, self.config)
     clean_audio = mag_phase_2_wave(clean_mag, clean_phase, self.config)
@@ -241,9 +241,9 @@ def train_batch_2_loss(self, train_batch, batch_idx, dtype):
             predict_noise_data = complex_mat_mult(noisy_data, predict_noise_mask)
             predict_clean_data = noisy_data - predict_noise_data
             predict_noise_audio = mag_phase_2_wave(torch.abs(predict_noise_data), \
-                                    torch.angle(predict_noise_data), self.config)
+                                    torch.atan2(predict_noise_data.imag, predict_noise_data.real + self.hparams['atan2_eps']), self.config)
             predict_clean_audio = mag_phase_2_wave(torch.abs(predict_clean_data), \
-                                    torch.angle(predict_clean_data), self.config)
+                                    torch.atan2(predict_clean_data.imag, predict_clean_data.real + self.hparams['atan2_eps']), self.config)
 
         noise_loss, speech_loss, train_loss = calc_loss(self,
                                                         target_noise_mask=target_noise_mask,
@@ -272,7 +272,7 @@ def train_batch_2_loss(self, train_batch, batch_idx, dtype):
 
             predict_clean_data = complex_mat_mult(noisy_data, predict_clean_mask)
             predict_clean_audio = mag_phase_2_wave(torch.abs(predict_clean_data), \
-                                    torch.angle(predict_clean_data), self.config)
+                                    torch.atan2(predict_clean_data.imag, predict_clean_data.real + self.hparams['atan2_eps']), self.config)
 
         speech_loss = calc_loss(self, predict_clean_audio=predict_clean_audio, clean_audio=clean_audio)
 
@@ -282,11 +282,11 @@ def val_batch_2_metric_loss(self, val_batch, val_idx, dtype):
     noise_data, noisy_data, clean_data, id = val_batch
 
     noise_mag = torch.abs(noise_data)
-    noise_phase = torch.angle(noise_data)
+    noise_phase = torch.atan2(noise_data.imag, noise_data.real + self.hparams['atan2_eps'])
     noisy_mag = torch.abs(noisy_data)
-    noisy_phase = torch.angle(noisy_data)
+    noisy_phase = torch.atan2(noisy_data.imag, noisy_data.real + self.hparams['atan2_eps'])
     clean_mag = torch.abs(clean_data)
-    clean_phase = torch.angle(clean_data)
+    clean_phase = torch.atan2(clean_data.imag, clean_data.real + self.hparams['atan2_eps'])
     noise_audio = mag_phase_2_wave(noise_mag, noise_phase, self.config)
     noisy_audio = mag_phase_2_wave(noisy_mag, noisy_phase, self.config)
     clean_audio = mag_phase_2_wave(clean_mag, clean_phase, self.config)
@@ -314,9 +314,9 @@ def val_batch_2_metric_loss(self, val_batch, val_idx, dtype):
             predict_noise_data = complex_mat_mult(noisy_data, predict_noise_mask)
             predict_clean_data = noisy_data - predict_noise_data
             predict_clean_audio = mag_phase_2_wave(torch.abs(predict_clean_data), \
-                                    torch.angle(predict_clean_data), self.config)
+                                    torch.atan2(predict_clean_data.imag, predict_clean_data.real + self.hparams['atan2_eps']), self.config)
             predict_noise_audio = mag_phase_2_wave(torch.abs(predict_noise_data), \
-                                    torch.angle(predict_noise_data), self.config)
+                                    torch.atan2(predict_noise_data.imag, predict_noise_data.real + self.hparams['atan2_eps']), self.config)
 
         pesq_av = calc_metric(clean_audio, predict_clean_audio, self.config, pesq)
         stoi_av = calc_metric(clean_audio, predict_clean_audio, self.config, stoi)
@@ -348,7 +348,7 @@ def val_batch_2_metric_loss(self, val_batch, val_idx, dtype):
 
             predict_clean_data = complex_mat_mult(noisy_data, predict_clean_mask)
             predict_clean_audio = mag_phase_2_wave(torch.abs(predict_clean_data), \
-                                    torch.angle(predict_clean_data), self.config)
+                                    torch.atan2(predict_clean_data.imag, predict_clean_data.real + self.hparams['atan2_eps']), self.config)
 
         pesq_av = calc_metric(clean_audio, predict_clean_audio, self.config, pesq)
         stoi_av = calc_metric(clean_audio, predict_clean_audio, self.config, stoi)
@@ -363,11 +363,11 @@ def test_batch_2_metric_loss(self, test_batch, test_idx, dtype):
     noise_data, noisy_data, clean_data, id, start_point = test_batch
 
     noise_mag = torch.abs(noise_data)
-    noise_phase = torch.angle(noise_data)
+    noise_phase = torch.atan2(noise_data.imag, noise_data.real + self.hparams['atan2_eps'])
     noisy_mag = torch.abs(noisy_data)
-    noisy_phase = torch.angle(noisy_data)
+    noisy_phase = torch.atan2(noisy_data.imag, noisy_data.real + self.hparams['atan2_eps'])
     clean_mag = torch.abs(clean_data)
-    clean_phase = torch.angle(clean_data)
+    clean_phase = torch.atan2(clean_data.imag, clean_data.real + self.hparams['atan2_eps'])
     noise_audio = mag_phase_2_wave(noise_mag, noise_phase, self.config)
     noisy_audio = mag_phase_2_wave(noisy_mag, noisy_phase, self.config)
     clean_audio = mag_phase_2_wave(clean_mag, clean_phase, self.config)
@@ -395,9 +395,9 @@ def test_batch_2_metric_loss(self, test_batch, test_idx, dtype):
             predict_noise_data = complex_mat_mult(noisy_data, predict_noise_mask)
             predict_clean_data = noisy_data - predict_noise_data
             predict_clean_audio = mag_phase_2_wave(torch.abs(predict_clean_data), \
-                                    torch.angle(predict_clean_data), self.config)
+                                    torch.atan2(predict_clean_data.imag, predict_clean_data.real + self.hparams['atan2_eps']), self.config)
             predict_noise_audio = mag_phase_2_wave(torch.abs(predict_noise_data), \
-                                    torch.angle(predict_noise_data), self.config)
+                                    torch.atan2(predict_noise_data.imag, predict_noise_data.real + self.hparams['atan2_eps']), self.config)
 
         noise_audio = mag_phase_2_wave(noise_mag, noise_phase, self.config)
         noisy_audio = mag_phase_2_wave(noisy_mag, noisy_phase, self.config)
@@ -432,7 +432,7 @@ def test_batch_2_metric_loss(self, test_batch, test_idx, dtype):
 
             predict_clean_data = complex_mat_mult(noisy_data, predict_clean_mask)
             predict_clean_audio = mag_phase_2_wave(torch.abs(predict_clean_data), \
-                                    torch.angle(predict_clean_data), self.config)
+                                    torch.atan2(predict_clean_data.imag, predict_clean_data.real + self.hparams['atan2_eps']), self.config)
 
         noise_audio = mag_phase_2_wave(noise_mag, noise_phase, self.config)
         noisy_audio = mag_phase_2_wave(noisy_mag, noisy_phase, self.config)

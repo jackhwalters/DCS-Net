@@ -27,7 +27,7 @@ MATLAB_ROOT = "../MATLAB/"
 
 # speech_loss_type
 # 0 SiSNR
-hparams = {'lr': 10e-6,
+hparams = {'lr': 10e-5,
             'initialisation_distribution': nn.init.xavier_uniform_,
             'noise_alpha': 1,
             'speech_alpha': 1,
@@ -42,7 +42,7 @@ hparams = {'lr': 10e-6,
             'dropout_fc': 0.2,
             'batch_size': 32,
             'optim_eps': 10e-7,
-            'bound_crm_eps': 10e-7,
+            'atan2_eps': 10e-7,
             'optim_weight_decay': 10e-5,
             'optim_amsgrad': True,
             'gradient_clip_val': 10.0,
@@ -55,7 +55,7 @@ hparams = {'lr': 10e-6,
 class Config(object):
     def __init__(self):
         self.tune = False
-        self.load_data_into_RAM = True
+        self.load_data_into_RAM = False
         self.sr = 16000
         self.file_sr = 48000
         self.resample = torchaudio.transforms.Resample(orig_freq=self.file_sr, new_freq=self.sr)
@@ -112,4 +112,5 @@ class Config(object):
 
         self.val_log_sample_size = 1
         self.seed = 0
+        self.detect_anomaly = True
 config = Config()

@@ -1,6 +1,5 @@
 import torch
 import matplotlib.pyplot as plt
-import seaborn as sns
 import torchaudio
 import math
 import norbert
@@ -162,9 +161,9 @@ MASK_DOMAIN_COMPARISON = 0
 # write(OUTPUT_FILES + "cartesian_output.wav", config.file_sr, cartesian_audio_recon.cpu().numpy())
 
 # mask_mag = torch.abs(mask)
-# mask_phase = torch.angle(mask)
+# mask_phase = torch.atan2(mask.imag, mask.real)
 # noisy_mag = torch.abs(noisy_data)
-# noisy_phase = torch.angle(noisy_data)
+# noisy_phase = torch.atan2(noisy_data.imag, noisy_data.real)
 # polar_mag = mask_mag * noisy_mag
 # polar_phase = mask_phase + noisy_phase
 # real = polar_mag * torch.cos(polar_phase)
@@ -179,6 +178,35 @@ MASK_DOMAIN_COMPARISON = 0
 # polar_L1 = config.L1(clean_audio, polar_audio_recon)
 # print("cartesian_L1: ", cartesian_L1)
 # print("polar_L1: ", polar_L1)
+
+
+ANGLE_VS_ATAN2_TESTING = 0
+# clean_audio, clean_sr = load(VOICEBANK_ROOT + "clean_trainset_28spk_wav/" + "p226_001.wav", normalize=True)
+# clean_audio = torch.squeeze(clean_audio)
+
+# clean_data = torch.stft(clean_audio, n_fft=config.fft_size, hop_length=config.hop_length, \
+#         win_length=config.window_length, window=config.window, return_complex=True, \
+#         normalized=config.normalise_stft)
+
+# clean_mag = torch.abs(clean_data)
+
+# # angle
+# clean_phase_angle = torch.angle(clean_data)
+# real_angle = clean_mag * torch.cos(clean_phase_angle)
+# imag_angle = clean_mag * torch.sin(clean_phase_angle)
+# complex_angle = torch.complex(real_angle, imag_angle)
+# audio_angle = torch.istft(complex_angle, n_fft=config.fft_size, hop_length=config.hop_length, \
+#             win_length=config.window_length, normalized=config.normalise_stft)
+# print("angle L1: ", config.L1(clean_audio, audio_angle))
+
+# # atan2
+# clean_phase_atan = torch.atan2(clean_data.imag, clean_data.real)
+# real_atan = clean_mag * torch.cos(clean_phase_atan)
+# imag_atan = clean_mag * torch.sin(clean_phase_atan)
+# complex_atan = torch.complex(real_atan, imag_atan)
+# audio_atan = torch.istft(complex_atan, n_fft=config.fft_size, hop_length=config.hop_length, \
+#             win_length=config.window_length, normalized=config.normalise_stft)
+# print("atan L1: ", config.L1(clean_audio, audio_atan))
 
 
 DATA_LOADING = 0
@@ -221,7 +249,8 @@ DATA_LOADING = 0
 #         normalized=config.normalise_stft) 
 
 # print("clean_data mag: ", torch.min(torch.abs(clean_data)), torch.max(torch.abs(clean_data)))
-# print("clean_data phase: ", torch.min(torch.angle(clean_data)), torch.max(torch.angle(clean_data)))
+# print("clean_data phase: ", torch.min(torch.atan2(clean_data.imag, clean_data.real)),
+#   torch.max(torch.atan2(clean_data.imag, clean_data.real)))
 # print("clean_data real: ", torch.min(clean_data.real), torch.max(clean_data.real))
 # print("clean_data imag: ", torch.min(clean_data.imag), torch.max(clean_data.imag))
 # clean_data_db, ref = amp_tensor_to_dB_tensor(clean_data)
@@ -236,9 +265,9 @@ DATA_LOADING = 0
 # clean_mag = torch.abs(clean_data)
 # noisy_mag = torch.abs(noisy_data)
 # noise_mag = torch.abs(noise_data)
-# clean_phase = torch.angle(clean_data)
-# noisy_phase = torch.angle(noisy_data)
-# noise_phase = torch.angle(noise_data)
+# clean_phase = torch.atan2(clean_data.imag, clean_data.real)
+# noisy_phase = torch.atan2(noisy_data.imag, noisy_data.real)
+# noise_phase = torch.atan2(noise_data.imag, noise_data.real)
 
 
 # PESQ_TESTING = 0 #https://www.microtronix.ca/pesq.html
@@ -678,43 +707,42 @@ MIN_AND_MAX_OF_DATASET = 0
 NOISE_DISTRIBUTIONS = 0
 # CREATING FILES
 
-# gaussian_integer_win_size = torch.normal(0, 1, size=[1, config.integer_win_size])
-# print(gaussian_integer_win_size)
-# print("torch.min(gaussian_integer_win_size): ", torch.min(gaussian_integer_win_size))
-# print("torch.max(gaussian_integer_win_size): ", torch.max(gaussian_integer_win_size))
-
 clean_audio, clean_sr = load(VOICEBANK_ROOT + "clean_trainset_28spk_wav/" + "p226_001.wav", normalize=True)
 clean_audio = torch.squeeze(clean_audio)
 print("clean_sr: ", clean_sr)
 print("torch.min(clean_audio): ", torch.min(clean_audio))
 print("torch.max(clean_audio): ", torch.max(clean_audio))
-
-# noisy_audio, noisy_sr = load(VOICEBANK_ROOT + "noisy_trainset_28spk_wav/" + "p226_001.wav", normalize=True)
-# noisy_audio = torch.squeeze(noisy_audio)
-# print("noisy_sr: ", noisy_sr)
-# print("torch.min(noisy_audio): ", torch.min(noisy_audio))
-# print("torch.max(noisy_audio): ", torch.max(noisy_audio))
-
-gaussian_audio = torch.normal(0, 1, size=[1, clean_audio.shape[0]])
-gaussian_audio_scaled = (((gaussian_audio - torch.min(gaussian_audio)) \
-    * (torch.max(clean_audio) - torch.min(clean_audio))) / (torch.max(gaussian_audio) - torch.min(gaussian_audio))) \
-    + torch.min(clean_audio)
-
-print("torch.min(gaussian_audio_scaled): ", torch.min(gaussian_audio_scaled))
-print("torch.max(gaussian_audio_scaled): ", torch.max(gaussian_audio_scaled))
-
-clean_gaussian = clean_audio + gaussian_audio_scaled
-
-write(OUTPUT_FILES + "clean_gaussian.wav", clean_sr, clean_gaussian[0].cpu().numpy())
-
-# FFT'ing
-
-gaussian_stft = torch.stft(gaussian_audio_scaled, n_fft=config.fft_size, hop_length=config.hop_length, \
+clean_data = torch.stft(clean_audio, n_fft=config.fft_size, hop_length=config.hop_length, \
         win_length=config.window_length, window=config.window, return_complex=True, \
         normalized=config.normalise_stft)
 
-sns_plot = sns.scatterplot(data=torch.view_as_real(torch.squeeze(gaussian_stft))[0].cpu().numpy())
-fig = sns_plot.get_figure()
-fig.savefig(OUTPUT_FILES + "sns_plot.png")
+gaussian_audio = torch.normal(0, 0.1, size=[1, clean_audio.shape[0]])
+# gaussian_audio_scaled = (((gaussian_audio - torch.min(gaussian_audio)) \
+#     * (torch.max(clean_audio) - torch.min(clean_audio))) / (torch.max(gaussian_audio) - torch.min(gaussian_audio))) \
+#     + torch.min(clean_audio)
+print("torch.min(gaussian_audio): ", torch.min(gaussian_audio))
+print("torch.max(gaussian_audio): ", torch.max(gaussian_audio))
+gaussian_data = torch.stft(gaussian_audio, n_fft=config.fft_size, hop_length=config.hop_length, \
+        win_length=config.window_length, window=config.window, return_complex=True, \
+        normalized=config.normalise_stft)
 
-# plt.savefig(OUTPUT_FILES + "sns_plot.png")
+clean_gaussian = clean_audio + gaussian_audio
+print("torch.min(clean_gaussian): ", torch.min(clean_gaussian))
+print("torch.max(clean_gaussian): ", torch.max(clean_gaussian))
+clean_gaussian_data = torch.stft(clean_gaussian, n_fft=config.fft_size, hop_length=config.hop_length, \
+        win_length=config.window_length, window=config.window, return_complex=True, \
+        normalized=config.normalise_stft)
+
+
+gaussian_cRM = cRM(gaussian_data, clean_gaussian_data)
+gaussian_back_data = complex_mat_mult(clean_gaussian_data, gaussian_cRM)
+gaussian_back_audio = torch.istft(gaussian_back_data, n_fft=config.fft_size, hop_length=config.hop_length, \
+    win_length=config.window_length, normalized=config.normalise_stft)
+print("gaussian_back_audio.shape: ", gaussian_back_audio.shape)
+# write(OUTPUT_FILES + "gaussian_back.wav", clean_sr, gaussian_back_audio[0].cpu().numpy())
+
+plt.scatter(gaussian_cRM.real[:,:], gaussian_cRM[:,:].imag, marker="x")
+plt.xlabel("real")
+plt.ylabel("imaginary")
+plt.title("gaussian_cRM")
+plt.savefig(OUTPUT_FILES + "complex_plane_plot.png")
