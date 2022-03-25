@@ -33,10 +33,10 @@ class SiSNR(object):
         norm = l2_norm(clean, clean)
 
         s_target =  (dot * clean)/(norm+eps)
-        e_nosie = estimate - s_target
+        e_noise = estimate - s_target
 
         target_norm = l2_norm(s_target, s_target)
-        noise_norm = l2_norm(e_nosie, e_nosie)
+        noise_norm = l2_norm(e_noise, e_noise)
         snr = 10*torch.log10((target_norm)/(noise_norm+eps)+eps)
 
         return torch.mean(snr)
@@ -192,7 +192,7 @@ def calc_loss(self, **kwargs):
                     self.config.mse(kwargs['target_noise_mask'], kwargs['predict_noise_mask'])
         elif self.hparams['noise_loss_type'] == 6:
             noise_loss_orig = -self.config.SiSNR(kwargs['noise_audio'], kwargs['predict_noise_audio'])
-        noise_loss = (self.hparams['noise_alpha'] * noise_loss_orig)
+        noise_loss = (1 - (self.hparams['speech_alpha']) * noise_loss_orig)
 
 
     if self.hparams['speech_loss_type'] == 0:

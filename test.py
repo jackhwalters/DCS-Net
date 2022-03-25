@@ -82,7 +82,7 @@ else:
     print("Please pass either real or complex as an argument to test the desired network")
 
 trainer = Trainer(
-    gpus=[0],
+    gpus=[int(sys.argv[2])],
     accelerator=None,
     precision=config.precision,
     logger=tb_logger)

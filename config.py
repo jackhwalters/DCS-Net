@@ -24,13 +24,13 @@ MATLAB_ROOT = "../MATLAB/"
 # 3: wSDRL1(wave)
 # 4: wSDRL1(spec)
 # 5: wSDRMSE(spec)
+# 6: SiSNR
 
 # speech_loss_type
 # 0 SiSNR
 hparams = {'lr': 10e-5,
             'initialisation_distribution': nn.init.xavier_uniform_,
-            'noise_alpha': 1,
-            'speech_alpha': 1,
+            'speech_alpha': 0.7,
             'no_of_layers': 7,
             'channels': [1, 16, 32, 64, 128, 256, 256, 256],
             'lstm_layers': 2,
@@ -45,7 +45,7 @@ hparams = {'lr': 10e-5,
             'atan2_eps': 10e-7,
             'optim_weight_decay': 10e-5,
             'optim_amsgrad': True,
-            'gradient_clip_val': 10.0,
+            'gradient_clip_val': 100.0,
             'gradient_clip_algorithm': "norm",
             'stochastic_weight_avg': True,
             'dataset_type': 28,
@@ -54,7 +54,7 @@ hparams = {'lr': 10e-5,
 
 class Config(object):
     def __init__(self):
-        self.tune = False
+        self.tune = True
         self.load_data_into_RAM = False
         self.sr = 16000
         self.file_sr = 48000
@@ -71,10 +71,10 @@ class Config(object):
         
         self.fft_size = 512
         self.window_length = self.fft_size
-        self.hop_length = 64
+        self.hop_length = 32
         self.window = hann_window(window_length=self.window_length) 
         self.normalise_audio = True
-        self.normalise_stft = False
+        self.normalise_stft = True
 
         self.L1 = nn.L1Loss()
         self.mse = nn.MSELoss()

@@ -23,15 +23,13 @@ if config.tune:
         hparams["lr"] = trial.suggest_float("Learning rate", 10e-6, 10e-4)
         hparams["initialisation_distribution"] = trial.suggest_categorical("Initialisation distribution",
             [nn.init.kaiming_uniform_, nn.init.xavier_uniform_])
-        hparams["noise_alpha"] = trial.suggest_float("Noise alpha", 0, 1)
         hparams["speech_alpha"] = trial.suggest_float("Speech alpha", 0, 1)
         hparams["lstm_layers"] = trial.suggest_int("LSTM layers", 1, 12)
-        # hparams["lstm_bidir"] = trial.suggest_categorical("LSTM bidir", [True, False])
-        hparams["noise_loss_type"] = trial.suggest_int("Noise loss option", 0, 5)
         hparams["dropout_conv"] = trial.suggest_float("Convolutional dropout probability", 0.01, 0.99)
         hparams["dropout_fc"] = trial.suggest_float("Fully connected dropout probability", 0.01, 0.99)
-        # hparams["batch_size"] = trial.suggest_categorical("Batch size", [16, 32, 64, 128])
         hparams["optim_weight_decay"] = trial.suggest_int("Optim weight decay", 10e-6, 10e-4)
+        # hparams["lstm_bidir"] = trial.suggest_categorical("LSTM bidir", [True, False])
+        # hparams["batch_size"] = trial.suggest_categorical("Batch size", [16, 32, 64, 128])
         if sys.argv[1] == "dcs":
             network = C_NETWORK(config, hparams, config.seed)
             if platform == "linux":
@@ -59,19 +57,22 @@ if config.tune:
         else:
             print("Please pass either 'drs', 'dcs', 'dr', or 'dc' as an argument to train the desired network")
 
-        trainer = Trainer(
-                # gpus=config.num_gpus if sys.argv[1] == "real" else 1,
-                # accelerator='ddp' if sys.argv[1] == "real" else None,
-                gpus = [0],
-                accelerator = None,
-                max_epochs=config.max_epochs,
-                logger=tb_logger,
-                num_sanity_val_steps=config.val_log_sample_size,
-                precision=config.precision,
-                gradient_clip_val=hparams['gradient_clip_val'],
-                gradient_clip_algorithm=hparams['gradient_clip_algorithm'],
-                stochastic_weight_avg=hparams['stochastic_weight_avg'],
-                callbacks=[PyTorchLightningPruningCallback(trial, monitor="val_pesq")])
+        try:
+            trainer = Trainer(
+                    # gpus=config.num_gpus if sys.argv[1] == "real" else 1,
+                    # accelerator='ddp' if sys.argv[1] == "real" else None,
+                    gpus=[int(sys.argv[2]) if platform == "linux" else 0],
+                    accelerator = None,
+                    max_epochs=config.max_epochs,
+                    logger=tb_logger,
+                    num_sanity_val_steps=config.val_log_sample_size,
+                    precision=config.precision,
+                    gradient_clip_val=hparams['gradient_clip_val'],
+                    gradient_clip_algorithm=hparams['gradient_clip_algorithm'],
+                    stochastic_weight_avg=hparams['stochastic_weight_avg'],
+                    callbacks=[PyTorchLightningPruningCallback(trial, monitor="val_pesq")])
+        except IndexError:
+            print("Please supply a GPU index as the 2nd command-line argument")
         
         trainer.fit(network, train_loader, validation_loader)
 
@@ -92,7 +93,7 @@ if config.tune:
                             study_name=study_name)
         study.optimize(objective,
                 n_trials=100,
-                timeout=6000,
+                timeout=None,
                 show_progress_bar=True)
 
         print("Number of finished trials: {}".format(len(study.trials)))
@@ -132,17 +133,20 @@ elif not config.tune:
         print("Please pass either 'drs', 'dcs', 'dr', or 'dc' as an argument to train the desired network")
 
     # callback options: CheckBatchGradient(), InputMonitor() 
-    trainer = Trainer(
-            gpus=[1],
-            accelerator = None,
-            max_epochs=config.max_epochs,
-            logger=tb_logger,
-            detect_anomaly=config.detect_anomaly,
-            num_sanity_val_steps=config.val_log_sample_size,
-            precision=config.precision,
-            gradient_clip_val=hparams['gradient_clip_val'],
-            gradient_clip_algorithm=hparams['gradient_clip_algorithm'],
-            stochastic_weight_avg=hparams['stochastic_weight_avg'])
+    try:
+        trainer = Trainer(
+                gpus=[int(sys.argv[2]) if platform == "linux" else 0],
+                accelerator=None,
+                max_epochs=config.max_epochs,
+                logger=tb_logger,
+                detect_anomaly=config.detect_anomaly,
+                num_sanity_val_steps=config.val_log_sample_size,
+                precision=config.precision,
+                gradient_clip_val=hparams['gradient_clip_val'],
+                gradient_clip_algorithm=hparams['gradient_clip_algorithm'],
+                stochastic_weight_avg=hparams['stochastic_weight_avg'])
+    except IndexError:
+        print("Please supply a GPU index as the 2nd command-line argument")
 
     if __name__ == "__main__":
         trainer.fit(network, train_loader, validation_loader)

@@ -1,9 +1,12 @@
 import torch
 import matplotlib.pyplot as plt
+import matplotlib.colors as colors
 import torchaudio
 import math
 import norbert
 import scipy
+import numpy as np
+from matplotlib import cm
 from scipy.io.wavfile import write
 from sys import platform
 if platform == "linux":
@@ -705,44 +708,97 @@ MIN_AND_MAX_OF_DATASET = 0
 
 
 NOISE_DISTRIBUTIONS = 0
-# CREATING FILES
-
-clean_audio, clean_sr = load(VOICEBANK_ROOT + "clean_trainset_28spk_wav/" + "p226_001.wav", normalize=True)
+# audio_file = "p250_215.wav"
+audio_file = "p269_234.wav"
+# LOADING FILES
+clean_audio, clean_sr = load(VOICEBANK_ROOT + "clean_trainset_28spk_wav/" + audio_file, normalize=True)
 clean_audio = torch.squeeze(clean_audio)
-print("clean_sr: ", clean_sr)
-print("torch.min(clean_audio): ", torch.min(clean_audio))
-print("torch.max(clean_audio): ", torch.max(clean_audio))
+# print("torch.min(clean_audio): ", torch.min(clean_audio))
+# print("torch.max(clean_audio): ", torch.max(clean_audio))
 clean_data = torch.stft(clean_audio, n_fft=config.fft_size, hop_length=config.hop_length, \
         win_length=config.window_length, window=config.window, return_complex=True, \
         normalized=config.normalise_stft)
 
+noisy_audio, noisy_sr = load(VOICEBANK_ROOT + "noisy_trainset_28spk_wav/" + audio_file, normalize=True)
+# print("torch.min(noisy_audio): ", torch.min(noisy_audio))
+# print("torch.max(noisy_audio): ", torch.max(noisy_audio))
+noisy_data = torch.stft(noisy_audio, n_fft=config.fft_size, hop_length=config.hop_length, \
+        win_length=config.window_length, window=config.window, return_complex=True, \
+        normalized=config.normalise_stft)
+
+noise_audio = noisy_audio - clean_audio
+noise_data = noisy_data - clean_data
+
+# CREATING GAUSSIAN
 gaussian_audio = torch.normal(0, 0.1, size=[1, clean_audio.shape[0]])
-# gaussian_audio_scaled = (((gaussian_audio - torch.min(gaussian_audio)) \
-#     * (torch.max(clean_audio) - torch.min(clean_audio))) / (torch.max(gaussian_audio) - torch.min(gaussian_audio))) \
-#     + torch.min(clean_audio)
-print("torch.min(gaussian_audio): ", torch.min(gaussian_audio))
-print("torch.max(gaussian_audio): ", torch.max(gaussian_audio))
+# print("torch.min(gaussian_audio): ", torch.min(gaussian_audio))
+# print("torch.max(gaussian_audio): ", torch.max(gaussian_audio))
 gaussian_data = torch.stft(gaussian_audio, n_fft=config.fft_size, hop_length=config.hop_length, \
         win_length=config.window_length, window=config.window, return_complex=True, \
         normalized=config.normalise_stft)
 
+# BLENDING GAUSSIAN
 clean_gaussian = clean_audio + gaussian_audio
-print("torch.min(clean_gaussian): ", torch.min(clean_gaussian))
-print("torch.max(clean_gaussian): ", torch.max(clean_gaussian))
+# print("torch.min(clean_gaussian): ", torch.min(clean_gaussian))
+# print("torch.max(clean_gaussian): ", torch.max(clean_gaussian))
 clean_gaussian_data = torch.stft(clean_gaussian, n_fft=config.fft_size, hop_length=config.hop_length, \
         win_length=config.window_length, window=config.window, return_complex=True, \
         normalized=config.normalise_stft)
 
-
+#cRM
 gaussian_cRM = cRM(gaussian_data, clean_gaussian_data)
-gaussian_back_data = complex_mat_mult(clean_gaussian_data, gaussian_cRM)
+gaussian_cRM_bounded = bound_cRM(gaussian_cRM, hparams)
+gaussian_back_data = complex_mat_mult(clean_gaussian_data, gaussian_cRM_bounded)
 gaussian_back_audio = torch.istft(gaussian_back_data, n_fft=config.fft_size, hop_length=config.hop_length, \
     win_length=config.window_length, normalized=config.normalise_stft)
-print("gaussian_back_audio.shape: ", gaussian_back_audio.shape)
-# write(OUTPUT_FILES + "gaussian_back.wav", clean_sr, gaussian_back_audio[0].cpu().numpy())
+write(OUTPUT_FILES + "gaussian_back.wav", clean_sr, gaussian_back_audio[0].cpu().numpy())
 
-plt.scatter(gaussian_cRM.real[:,:], gaussian_cRM[:,:].imag, marker="x")
-plt.xlabel("real")
-plt.ylabel("imaginary")
-plt.title("gaussian_cRM")
-plt.savefig(OUTPUT_FILES + "complex_plane_plot.png")
+noisy_cRM = cRM(noise_data, noisy_data)
+noisy_cRM_bounded = bound_cRM(noisy_cRM, hparams)
+noise_back_data = complex_mat_mult(noisy_data, noisy_cRM_bounded)
+noise_back_audio = torch.istft(noise_back_data, n_fft=config.fft_size, hop_length=config.hop_length, \
+    win_length=config.window_length, normalized=config.normalise_stft)
+write(OUTPUT_FILES + "noise_back.wav", noisy_sr, noise_back_audio[0].cpu().numpy())
+
+
+#PLOT
+# fig, (gaussian_plot, noise_plot) = plt.subplots(1, 2)
+# fig.suptitle('cRM plots')
+
+# gaussian_plot.scatter(gaussian_cRM_bounded.real[:,:], gaussian_cRM_bounded.imag[:,:], marker="x", linewidths=1, alpha=0.01)
+# gaussian_plot.set_title("gaussian cRM")
+# gaussian_plot.set(xlabel="real", ylabel="imag")
+
+# noise_plot.scatter(noisy_cRM_bounded.real[:,:], noisy_cRM_bounded.imag[:,:], marker="x", linewidths=1, alpha=0.01)
+# noise_plot.set_title("noise cRM")
+# noise_plot.set(xlabel="real")
+
+# fig.savefig(OUTPUT_FILES + "cRMs.png")
+
+# x = torch.squeeze(noisy_cRM_bounded).real[:,:]
+# y = torch.squeeze(noisy_cRM_bounded).imag[:,:]
+# plt.hexbin(x, y, cmap=cm.get_cmap('viridis'), bins='log')
+# plt.title("cRM")
+# plt.xlabel("Real")
+# plt.ylabel("Imaginary")
+# plt.xlim(-1, 1)
+# plt.ylim(-1, 1)
+
+# cb = plt.colorbar()
+# cb.set_label('Bin Activation')
+# plt.savefig(OUTPUT_FILES + "cRM.png")
+
+
+# x = torch.abs(torch.squeeze(noisy_cRM_bounded))[:,0]
+# y = torch.abs(torch.squeeze(noisy_cRM_bounded))[0,:257]
+# plt.hexbin(x, y, cmap=cm.get_cmap('viridis'), bins=None)
+plt.imshow(torch.abs(torch.squeeze(noisy_cRM_bounded))[:,:500], origin='lower')
+plt.title("RM")
+plt.xlabel("Frame")
+plt.ylabel("Bin")
+# plt.xlim(-1, 1)
+# plt.ylim(-1, 1)
+
+cb = plt.colorbar()
+cb.set_label('Bin Activation')
+plt.savefig(OUTPUT_FILES + "RM.png")
