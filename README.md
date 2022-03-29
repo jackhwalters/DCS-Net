@@ -25,5 +25,3 @@ $ python train.py [NETWORK]
 ```
 $ python test.py [NETWORK]
 ```
-
-Example output files are available in /output_files/

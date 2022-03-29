@@ -144,7 +144,8 @@ def mag_phase_2_wave(mag, phase, config):
     comp = torch.nn.functional.pad(comp, (0,0,0,1))
     
     audio = torch.istft(comp, n_fft=config.fft_size, hop_length=config.hop_length, \
-            win_length=config.window_length, normalized=config.normalise_stft)
+            win_length=config.window_length, window=config.window.to("cuda:{}".format(comp.get_device())), \
+            normalized=config.normalise_stft)
 
     return audio
 

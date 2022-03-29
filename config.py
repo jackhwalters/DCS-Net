@@ -54,7 +54,7 @@ hparams = {'lr': 10e-5,
 
 class Config(object):
     def __init__(self):
-        self.tune = True
+        self.tune = False
         self.load_data_into_RAM = False
         self.sr = 16000
         self.file_sr = 48000
